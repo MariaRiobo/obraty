@@ -1190,63 +1190,231 @@ body {
     color: var(--assistant-olive-deep);
 }
 
-/* Segmented control (group toggle) */
-.segmented {
-    display: flex;
-    background: var(--surface-tint);
-    border-radius: 12px;
-    padding: 4px;
+/* Filter button + dropdown menu */
+.filter-wrap {
+    position: relative;
     margin-top: 12px;
-    border: 1px solid var(--line-gray);
-    gap: 2px;
 }
 
-.segmented button {
-    flex: 1;
-    border: 0;
-    background: transparent;
-    padding: 8px 12px;
-    font-size: 12px;
+.filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-tint);
+    border: 1px solid var(--line-gray);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
     font-weight: 600;
+    color: var(--text-dark);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.filter-btn:hover {
+    border-color: var(--assistant-olive);
+}
+
+.filter-btn > i:first-child {
+    color: var(--assistant-olive-deep);
+    font-size: 13px;
+}
+
+.filter-btn__caret {
     color: var(--text-muted);
+    font-size: 10px;
+    margin-left: 4px;
+    transition: transform 0.2s ease;
+}
+
+.filter-btn[aria-expanded="true"] .filter-btn__caret {
+    transform: rotate(180deg);
+}
+
+.filter-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    border-radius: 13px;
+    padding: 6px;
+    display: grid;
+    gap: 2px;
+    min-width: 240px;
+    box-shadow: var(--shadow-md);
+    z-index: 6;
+    animation: fadeIn 0.18s ease;
+}
+
+.filter-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border: 0;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
     cursor: pointer;
     border-radius: 8px;
     font-family: inherit;
-    transition: background 0.2s ease, color 0.2s ease;
+    text-align: left;
+    width: 100%;
+    transition: background 0.15s ease;
 }
 
-.segmented button.active {
-    background: var(--white);
+.filter-menu button:hover {
+    background: var(--surface-tint);
+}
+
+.filter-menu button.active {
+    background: var(--assistant-olive-soft);
     color: var(--assistant-olive-deep);
-    box-shadow: 0 1px 2px rgba(42, 36, 33, 0.08);
 }
 
-/* Folder card (library grouping) */
-.folder-card {
-    background: var(--surface);
-    border: 1px solid var(--line-gray);
-    border-radius: 18px;
-    padding: 14px;
-    margin-bottom: 12px;
-    box-shadow: var(--shadow-sm);
+.filter-menu button > i:first-child {
+    color: var(--assistant-olive-deep);
+    font-size: 13px;
+    width: 16px;
+    text-align: center;
 }
 
-.folder-card__title {
-    font-size: 14px;
-    font-weight: 700;
+.filter-menu__check {
+    margin-left: auto;
+    color: var(--assistant-olive-deep);
+    font-size: 11px;
+}
+
+/* Folder list (library carpetas view) */
+.folder-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.folder-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    border-radius: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-dark);
+    text-align: left;
+    width: 100%;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.18s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.folder-card__title i {
+.folder-row:hover {
+    border-color: var(--assistant-olive);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.folder-row:active {
+    transform: translateY(0) scale(0.99);
+}
+
+.folder-row__icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    background: linear-gradient(135deg, rgba(122, 148, 48, 0.18), rgba(122, 148, 48, 0.06));
     color: var(--assistant-olive-deep);
-    font-size: 14px;
+    display: grid;
+    place-items: center;
+    font-size: 19px;
+    flex-shrink: 0;
 }
 
-.folder-card__title .badge {
-    margin-left: auto;
+.folder-row__body {
+    flex: 1;
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.folder-row__name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    color: var(--text-dark);
+    line-height: 1.2;
+}
+
+.folder-row__count {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.folder-row__chevron {
+    color: var(--text-soft);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* Folder detail (library folder open) */
+.folder-detail {
+    padding: 16px;
+}
+
+.folder-detail__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 0;
+    padding: 6px 0;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--assistant-olive-deep);
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 14px;
+    transition: opacity 0.2s ease;
+}
+
+.folder-detail__back:hover {
+    opacity: 0.75;
+}
+
+.folder-detail__head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.folder-detail__icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(122, 148, 48, 0.2), rgba(122, 148, 48, 0.08));
+    color: var(--assistant-olive-deep);
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.folder-detail__head-text h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+}
+
+.folder-detail__head-text p {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
 }
 
 /* Plan / Doc viewer + Upload screen (shared overlay) */

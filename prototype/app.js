@@ -76,8 +76,9 @@ const state = {
     currentRole: null,
     currentProject: 'patria',
     activeTab: 'home',
-    tabHistory: [],
     libraryGrouping: 'type',
+    libraryFilterOpen: false,
+    libraryFolder: null,
     focusThreadId: null,
     ownerCommentDone: false,
     mentionDone: false,
@@ -419,14 +420,16 @@ function selectRole(roleId) {
     state.currentRole = roleId;
     roleSwitcher.value = roleId;
     state.activeTab = 'home';
-    state.tabHistory = [];
+    state.libraryFolder = null;
+    state.libraryFilterOpen = false;
     renderApp();
     showScreen(screenApp);
 }
 
-function switchTab(tabId, options = {}) {
-    if (!options.fromBack && state.activeTab && state.activeTab !== tabId) {
-        state.tabHistory.push(state.activeTab);
+function switchTab(tabId) {
+    if (state.activeTab === 'library' && tabId !== 'library') {
+        state.libraryFolder = null;
+        state.libraryFilterOpen = false;
     }
     state.activeTab = tabId;
     tabButtons.forEach(button => button.classList.toggle('active', button.dataset.tab === tabId));
@@ -434,10 +437,11 @@ function switchTab(tabId, options = {}) {
     renderApp();
 }
 
-function goBackTab() {
-    if (state.tabHistory.length === 0) return;
-    const previousTab = state.tabHistory.pop();
-    switchTab(previousTab, { fromBack: true });
+function handleHeaderBack() {
+    if (state.activeTab === 'library' && state.libraryFolder) {
+        state.libraryFolder = null;
+        renderApp();
+    }
 }
 
 function pushVersionEvent(type, payload) {
@@ -964,16 +968,12 @@ function renderDocs() {
         ? `<div class="doc-list">${visibleDocs.map(docRow).join('')}</div>`
         : '<p class="section-sub">Todavía no hay documentos cargados.</p>';
 
-    const listTitle = role === 'owner' ? 'Mis documentos' : 'Mis archivos';
-    const listSubtitle = role === 'owner'
-        ? `${project.name} · Podés leerlos, comentar y descargarlos.`
-        : `${project.name} · Solo lo que subiste vos. Para ver todo el proyecto, andá a Documentos.`;
+    const listTitle = role === 'owner' ? 'Mis documentos' : 'Mis archivos subidos';
 
     container.innerHTML = `
         ${uploadCtaMarkup}
         <article class="section-card">
-            <h3 class="section-title">${listTitle} <span class="badge badge-neutral">${visibleDocs.length}</span></h3>
-            <p class="section-sub">${listSubtitle}</p>
+            <h3 class="section-title">${listTitle}</h3>
             ${listMarkup}
         </article>
     `;
@@ -1019,73 +1019,121 @@ function renderLibrary() {
         `;
     };
 
-    const toggle = `
-        <div class="segmented" role="tablist" aria-label="Agrupar documentos">
-            <button data-group="type" class="${grouping === 'type' ? 'active' : ''}" role="tab"><i class="fas fa-folder"></i> Por tipo</button>
-            <button data-group="date" class="${grouping === 'date' ? 'active' : ''}" role="tab"><i class="fas fa-calendar"></i> Por fecha</button>
-        </div>
-    `;
-
-    let body = '';
-
-    if (!projectDocs.length) {
-        body = '<div class="section-card"><p>Todavía no hay documentos en el proyecto.</p></div>';
-    } else if (grouping === 'type') {
-        const folderOrder = [];
-        DOC_TYPES.forEach(t => {
-            if (!folderOrder.includes(t.folder)) folderOrder.push(t.folder);
-        });
+    const buildFolders = () => {
+        if (grouping === 'type') {
+            const folderOrder = [];
+            DOC_TYPES.forEach(t => {
+                if (!folderOrder.includes(t.folder)) folderOrder.push(t.folder);
+            });
+            projectDocs.forEach(doc => {
+                if (!folderOrder.includes(doc.folder)) folderOrder.push(doc.folder);
+            });
+            return folderOrder
+                .map(folder => {
+                    const docs = projectDocs.filter(d => d.folder === folder);
+                    if (!docs.length) return null;
+                    return { key: `type:${folder}`, label: folder, icon: 'fa-folder', docs, sortAsc: false };
+                })
+                .filter(Boolean);
+        }
+        const groups = new Map();
         projectDocs.forEach(doc => {
-            if (!folderOrder.includes(doc.folder)) folderOrder.push(doc.folder);
+            const key = new Date(doc.createdAt).toISOString().slice(0, 10);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(doc);
         });
-        body = folderOrder
-            .map(folder => {
-                const docs = projectDocs
-                    .filter(d => d.folder === folder)
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                if (!docs.length) return '';
-                return `
-                    <article class="folder-card">
-                        <h3 class="folder-card__title"><i class="fas fa-folder"></i> ${escapeHtml(folder)} <span class="badge badge-neutral">${docs.length}</span></h3>
-                        <div class="doc-list">${docs.map(libraryDocRow).join('')}</div>
-                    </article>
-                `;
-            })
-            .join('');
-    } else {
-        const now = Date.now();
-        const buckets = [
-            { id: 'hoy', label: 'Hoy', icon: 'fa-clock', match: ms => ms < 1000 * 60 * 60 * 24 },
-            { id: 'semana', label: 'Esta semana', icon: 'fa-calendar-week', match: ms => ms < 1000 * 60 * 60 * 24 * 7 },
-            { id: 'mes', label: 'Este mes', icon: 'fa-calendar', match: ms => ms < 1000 * 60 * 60 * 24 * 31 },
-            { id: 'antes', label: 'Anteriores', icon: 'fa-clock-rotate-left', match: () => true }
-        ];
+        return [...groups.keys()]
+            .sort((a, b) => b.localeCompare(a))
+            .map(dateKey => ({
+                key: `date:${dateKey}`,
+                label: formatDateFolderLabel(dateKey),
+                icon: 'fa-calendar-day',
+                docs: groups.get(dateKey),
+                sortAsc: true
+            }));
+    };
 
-        const used = new Set();
-        body = buckets.map(bucket => {
-            const docs = projectDocs
-                .filter(d => !used.has(d.id))
-                .filter(d => bucket.match(now - new Date(d.createdAt).getTime()))
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            docs.forEach(d => used.add(d.id));
-            if (!docs.length) return '';
-            return `
-                <article class="folder-card">
-                    <h3 class="folder-card__title"><i class="fas ${bucket.icon}"></i> ${bucket.label} <span class="badge badge-neutral">${docs.length}</span></h3>
-                    <div class="doc-list">${docs.map(libraryDocRow).join('')}</div>
-                </article>
-            `;
-        }).join('');
+    const folders = buildFolders();
+    const activeFolder = state.libraryFolder ? folders.find(f => f.key === state.libraryFolder) : null;
+
+    if (activeFolder) {
+        const sorted = [...activeFolder.docs].sort((a, b) => {
+            const diff = new Date(a.createdAt) - new Date(b.createdAt);
+            return activeFolder.sortAsc ? diff : -diff;
+        });
+
+        container.innerHTML = `
+            <article class="section-card folder-detail">
+                <button type="button" class="folder-detail__back" id="library-back">
+                    <i class="fas fa-chevron-left"></i> Volver a las carpetas
+                </button>
+                <div class="folder-detail__head">
+                    <div class="folder-detail__icon"><i class="fas ${activeFolder.icon}"></i></div>
+                    <div class="folder-detail__head-text">
+                        <h2>${escapeHtml(activeFolder.label)}</h2>
+                        <p>${sorted.length} ${sorted.length === 1 ? 'documento' : 'documentos'}</p>
+                    </div>
+                </div>
+            </article>
+            <div class="doc-list">${sorted.map(libraryDocRow).join('')}</div>
+        `;
+        return;
     }
+
+    const groupingLabel = grouping === 'type' ? 'Por tipo de archivo' : 'Por fecha de subida';
+
+    const foldersMarkup = folders.length
+        ? `<div class="folder-grid">${folders.map(folder => `
+                <button type="button" class="folder-row" data-open-folder="${escapeHtml(folder.key)}">
+                    <span class="folder-row__icon"><i class="fas ${folder.icon}"></i></span>
+                    <span class="folder-row__body">
+                        <span class="folder-row__name">${escapeHtml(folder.label)}</span>
+                        <span class="folder-row__count">${folder.docs.length} ${folder.docs.length === 1 ? 'documento' : 'documentos'}</span>
+                    </span>
+                    <i class="fas fa-chevron-right folder-row__chevron"></i>
+                </button>
+            `).join('')}</div>`
+        : '<div class="section-card"><p>Todavía no hay documentos en el proyecto.</p></div>';
 
     container.innerHTML = `
         <article class="section-card">
-            <h3 class="section-title">${escapeHtml(project.name)} <span class="badge badge-neutral">${projectDocs.length}</span></h3>
-            <p class="section-sub">Todos los documentos del proyecto. Comentá o descargá cualquiera.</p>
-            ${toggle}
+            <h3 class="section-title">Documentos del Proyecto</h3>
+            <div class="filter-wrap">
+                <button type="button" class="filter-btn" id="library-filter-btn" aria-haspopup="menu" aria-expanded="${state.libraryFilterOpen}">
+                    <i class="fas fa-filter"></i>
+                    <span>Filtrar · ${groupingLabel}</span>
+                    <i class="fas fa-chevron-down filter-btn__caret"></i>
+                </button>
+                ${state.libraryFilterOpen ? `
+                    <div class="filter-menu" id="library-filter-menu" role="menu">
+                        <button type="button" data-group="type" class="${grouping === 'type' ? 'active' : ''}" role="menuitem">
+                            <i class="fas fa-folder"></i>
+                            <span>Por tipo de archivo</span>
+                            ${grouping === 'type' ? '<i class="fas fa-check filter-menu__check"></i>' : ''}
+                        </button>
+                        <button type="button" data-group="date" class="${grouping === 'date' ? 'active' : ''}" role="menuitem">
+                            <i class="fas fa-calendar"></i>
+                            <span>Por fecha de subida</span>
+                            ${grouping === 'date' ? '<i class="fas fa-check filter-menu__check"></i>' : ''}
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
         </article>
-        ${body}
+        ${foldersMarkup}
     `;
+}
+
+function formatDateFolderLabel(isoDate) {
+    const date = new Date(isoDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.getTime() === today.getTime()) return 'Hoy';
+    if (date.getTime() === yesterday.getTime()) return 'Ayer';
+    return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function renderUploadScreen() {
@@ -1445,7 +1493,10 @@ function updateHeader() {
     notifTabLabel.textContent = notifCount > 0 ? `Alertas (${notifCount})` : 'Alertas';
 
     const backBtn = document.getElementById('back-profiles');
-    if (backBtn) backBtn.disabled = state.tabHistory.length === 0;
+    if (backBtn) {
+        const hasBack = state.activeTab === 'library' && Boolean(state.libraryFolder);
+        backBtn.disabled = !hasBack;
+    }
 }
 
 function chatMessagesForRole() {
@@ -1676,11 +1727,59 @@ function attachEventsInActiveTab() {
 
     document.querySelectorAll('[data-group]').forEach(button => {
         button.addEventListener('click', () => {
-            state.libraryGrouping = button.dataset.group;
+            const next = button.dataset.group;
+            if (state.libraryGrouping !== next) {
+                state.libraryGrouping = next;
+                state.libraryFolder = null;
+            }
+            state.libraryFilterOpen = false;
             renderLibrary();
             attachEventsInActiveTab();
         });
     });
+
+    const filterBtn = document.getElementById('library-filter-btn');
+    if (filterBtn) {
+        filterBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            state.libraryFilterOpen = !state.libraryFilterOpen;
+            renderLibrary();
+            attachEventsInActiveTab();
+            if (state.libraryFilterOpen) bindFilterMenuOutsideClick();
+        });
+    }
+
+    document.querySelectorAll('[data-open-folder]').forEach(button => {
+        button.addEventListener('click', () => {
+            state.libraryFolder = button.dataset.openFolder;
+            renderApp();
+        });
+    });
+
+    const libraryBack = document.getElementById('library-back');
+    if (libraryBack) {
+        libraryBack.addEventListener('click', () => {
+            state.libraryFolder = null;
+            renderApp();
+        });
+    }
+}
+
+function bindFilterMenuOutsideClick() {
+    const handler = (event) => {
+        const menu = document.getElementById('library-filter-menu');
+        const btn = document.getElementById('library-filter-btn');
+        if (!menu) {
+            document.removeEventListener('mousedown', handler);
+            return;
+        }
+        if (menu.contains(event.target) || (btn && btn.contains(event.target))) return;
+        state.libraryFilterOpen = false;
+        renderLibrary();
+        attachEventsInActiveTab();
+        document.removeEventListener('mousedown', handler);
+    };
+    document.addEventListener('mousedown', handler);
 }
 
 function renderApp() {
@@ -1708,7 +1807,7 @@ function boot() {
 
     document.getElementById('btn-enter').addEventListener('click', () => showScreen(screenProfiles));
     document.getElementById('back-login').addEventListener('click', () => showScreen(screenLogin));
-    document.getElementById('back-profiles').addEventListener('click', goBackTab);
+    document.getElementById('back-profiles').addEventListener('click', handleHeaderBack);
 
     document.querySelectorAll('.profile-card').forEach(card => {
         card.addEventListener('click', () => {
