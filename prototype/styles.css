@@ -1190,6 +1190,65 @@ body {
     color: var(--assistant-olive-deep);
 }
 
+/* Segmented control (group toggle) */
+.segmented {
+    display: flex;
+    background: var(--surface-tint);
+    border-radius: 12px;
+    padding: 4px;
+    margin-top: 12px;
+    border: 1px solid var(--line-gray);
+    gap: 2px;
+}
+
+.segmented button {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 8px;
+    font-family: inherit;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.segmented button.active {
+    background: var(--white);
+    color: var(--assistant-olive-deep);
+    box-shadow: 0 1px 2px rgba(42, 36, 33, 0.08);
+}
+
+/* Folder card (library grouping) */
+.folder-card {
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    border-radius: 18px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.folder-card__title {
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.folder-card__title i {
+    color: var(--assistant-olive-deep);
+    font-size: 14px;
+}
+
+.folder-card__title .badge {
+    margin-left: auto;
+}
+
 /* Plan / Doc viewer + Upload screen (shared overlay) */
 .plan-viewer,
 .upload-screen {
@@ -1573,6 +1632,30 @@ body {
     grid-template-columns: repeat(4, 1fr);
     padding-bottom: 10px;
     z-index: 11;
+}
+
+.tab-bar[data-tabs="5"] {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.tab-bar[data-tabs="5"] .tab-item {
+    font-size: 10px;
+    gap: 3px;
+}
+
+.tab-bar[data-tabs="5"] .tab-item i {
+    font-size: 15px;
+}
+
+.tab-bar[data-tabs="5"] .tab-item span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.tab-item[hidden] {
+    display: none;
 }
 
 .tab-item {

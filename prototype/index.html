@@ -72,6 +72,7 @@
                 <main id="content-area">
                     <section id="tab-home" class="tab-screen active"></section>
                     <section id="tab-docs" class="tab-screen"></section>
+                    <section id="tab-library" class="tab-screen"></section>
                     <section id="tab-notifications" class="tab-screen"></section>
                     <section id="tab-history" class="tab-screen"></section>
                 </main>
@@ -151,13 +152,17 @@
                     </form>
                 </aside>
 
-                <nav class="tab-bar" aria-label="Navegación principal">
+                <nav class="tab-bar" aria-label="Navegación principal" data-tabs="4">
                     <button class="tab-item active" data-tab="home">
                         <i class="fas fa-house"></i>
                         <span>Inicio</span>
                     </button>
                     <button class="tab-item" data-tab="docs">
                         <i class="fas fa-folder-open"></i>
+                        <span data-tab-label="docs">Documentos</span>
+                    </button>
+                    <button class="tab-item" data-tab="library" hidden>
+                        <i class="fas fa-box-archive"></i>
                         <span>Documentos</span>
                     </button>
                     <button class="tab-item" data-tab="notifications">

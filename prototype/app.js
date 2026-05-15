@@ -61,16 +61,23 @@ const ROLES = {
 
 const TAB_TITLES = {
     home: 'Inicio',
-    docs: 'Documentos',
+    docs: 'Mis archivos',
+    library: 'Documentos del proyecto',
     notifications: 'Alertas',
     history: 'Historial'
 };
+
+function tabTitleFor(tabId) {
+    if (tabId === 'docs' && state.currentRole === 'owner') return 'Mis documentos';
+    return TAB_TITLES[tabId] || '';
+}
 
 const state = {
     currentRole: null,
     currentProject: 'patria',
     activeTab: 'home',
     tabHistory: [],
+    libraryGrouping: 'type',
     focusThreadId: null,
     ownerCommentDone: false,
     mentionDone: false,
@@ -918,7 +925,7 @@ function renderDocs() {
     const projectDocs = state.documents.filter(doc => doc.projectId === state.currentProject);
     const visibleDocs = role === 'owner'
         ? projectDocs.filter(doc => ['Boletos', 'Planos', 'Comprobantes'].includes(doc.folder))
-        : projectDocs;
+        : projectDocs.filter(doc => doc.uploadedBy === role);
 
     const docRow = (doc) => {
         const typeLabel = docTypeLabel(doc);
@@ -957,10 +964,10 @@ function renderDocs() {
         ? `<div class="doc-list">${visibleDocs.map(docRow).join('')}</div>`
         : '<p class="section-sub">Todavía no hay documentos cargados.</p>';
 
-    const listTitle = role === 'owner' ? 'Mis documentos' : `Documentos de ${project.name}`;
+    const listTitle = role === 'owner' ? 'Mis documentos' : 'Mis archivos';
     const listSubtitle = role === 'owner'
         ? `${project.name} · Podés leerlos, comentar y descargarlos.`
-        : 'Comentá o descargá cualquier documento.';
+        : `${project.name} · Solo lo que subiste vos. Para ver todo el proyecto, andá a Documentos.`;
 
     container.innerHTML = `
         ${uploadCtaMarkup}
@@ -969,6 +976,115 @@ function renderDocs() {
             <p class="section-sub">${listSubtitle}</p>
             ${listMarkup}
         </article>
+    `;
+}
+
+function renderLibrary() {
+    const container = document.getElementById('tab-library');
+    const role = state.currentRole;
+    const project = activeProject();
+
+    if (role === 'owner' || !project) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const projectDocs = state.documents
+        .filter(doc => doc.projectId === state.currentProject);
+
+    const grouping = state.libraryGrouping;
+
+    const libraryDocRow = (doc) => {
+        const typeLabel = docTypeLabel(doc);
+        const isPlan = doc.folder === 'Planos';
+        const isFresh = doc.id === docsForm.freshDocId;
+        return `
+            <div class="doc-row ${isFresh ? 'fresh' : ''}">
+                <div class="doc-row__icon"><i class="fas ${isPlan ? 'fa-drafting-compass' : 'fa-file-lines'}"></i></div>
+                <div class="doc-row__body">
+                    <div class="doc-row__title">
+                        <h4>${escapeHtml(doc.name)}</h4>
+                        <span class="badge badge-neutral">${escapeHtml(typeLabel)}</span>
+                    </div>
+                    ${doc.observation ? `<p class="doc-row__obs">${escapeHtml(doc.observation)}</p>` : ''}
+                    <div class="doc-row__meta">
+                        <small>${prettyDate(doc.createdAt)} · ${roleLabel(doc.uploadedBy)}</small>
+                        <div class="doc-row__actions">
+                            <button data-doc-action="comentar" data-doc-id="${doc.id}"><i class="fas fa-message"></i> Comentar</button>
+                            <button data-doc-action="descargar" data-doc-id="${doc.id}"><i class="fas fa-download"></i> Descargar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    const toggle = `
+        <div class="segmented" role="tablist" aria-label="Agrupar documentos">
+            <button data-group="type" class="${grouping === 'type' ? 'active' : ''}" role="tab"><i class="fas fa-folder"></i> Por tipo</button>
+            <button data-group="date" class="${grouping === 'date' ? 'active' : ''}" role="tab"><i class="fas fa-calendar"></i> Por fecha</button>
+        </div>
+    `;
+
+    let body = '';
+
+    if (!projectDocs.length) {
+        body = '<div class="section-card"><p>Todavía no hay documentos en el proyecto.</p></div>';
+    } else if (grouping === 'type') {
+        const folderOrder = [];
+        DOC_TYPES.forEach(t => {
+            if (!folderOrder.includes(t.folder)) folderOrder.push(t.folder);
+        });
+        projectDocs.forEach(doc => {
+            if (!folderOrder.includes(doc.folder)) folderOrder.push(doc.folder);
+        });
+        body = folderOrder
+            .map(folder => {
+                const docs = projectDocs
+                    .filter(d => d.folder === folder)
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                if (!docs.length) return '';
+                return `
+                    <article class="folder-card">
+                        <h3 class="folder-card__title"><i class="fas fa-folder"></i> ${escapeHtml(folder)} <span class="badge badge-neutral">${docs.length}</span></h3>
+                        <div class="doc-list">${docs.map(libraryDocRow).join('')}</div>
+                    </article>
+                `;
+            })
+            .join('');
+    } else {
+        const now = Date.now();
+        const buckets = [
+            { id: 'hoy', label: 'Hoy', icon: 'fa-clock', match: ms => ms < 1000 * 60 * 60 * 24 },
+            { id: 'semana', label: 'Esta semana', icon: 'fa-calendar-week', match: ms => ms < 1000 * 60 * 60 * 24 * 7 },
+            { id: 'mes', label: 'Este mes', icon: 'fa-calendar', match: ms => ms < 1000 * 60 * 60 * 24 * 31 },
+            { id: 'antes', label: 'Anteriores', icon: 'fa-clock-rotate-left', match: () => true }
+        ];
+
+        const used = new Set();
+        body = buckets.map(bucket => {
+            const docs = projectDocs
+                .filter(d => !used.has(d.id))
+                .filter(d => bucket.match(now - new Date(d.createdAt).getTime()))
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            docs.forEach(d => used.add(d.id));
+            if (!docs.length) return '';
+            return `
+                <article class="folder-card">
+                    <h3 class="folder-card__title"><i class="fas ${bucket.icon}"></i> ${bucket.label} <span class="badge badge-neutral">${docs.length}</span></h3>
+                    <div class="doc-list">${docs.map(libraryDocRow).join('')}</div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    container.innerHTML = `
+        <article class="section-card">
+            <h3 class="section-title">${escapeHtml(project.name)} <span class="badge badge-neutral">${projectDocs.length}</span></h3>
+            <p class="section-sub">Todos los documentos del proyecto. Comentá o descargá cualquiera.</p>
+            ${toggle}
+        </article>
+        ${body}
     `;
 }
 
@@ -1304,7 +1420,21 @@ function updateHeader() {
     if (!role) return;
 
     rolePill.textContent = role.label;
-    tabTitle.textContent = state.activeTab === 'home' ? role.homeTitle : TAB_TITLES[state.activeTab];
+    tabTitle.textContent = state.activeTab === 'home' ? role.homeTitle : tabTitleFor(state.activeTab);
+
+    const showLibrary = state.currentRole !== 'owner';
+    const tabBar = document.querySelector('.tab-bar');
+    if (tabBar) tabBar.dataset.tabs = showLibrary ? '5' : '4';
+
+    const libraryTab = document.querySelector('.tab-item[data-tab="library"]');
+    if (libraryTab) libraryTab.hidden = !showLibrary;
+
+    const docsLabel = document.querySelector('[data-tab-label="docs"]');
+    if (docsLabel) docsLabel.textContent = state.currentRole === 'owner' ? 'Documentos' : 'Mis archivos';
+
+    if (!showLibrary && state.activeTab === 'library') {
+        state.activeTab = 'home';
+    }
 
     const notifCount = state.notifications
         .filter(notification => notification.targets.includes(state.currentRole))
@@ -1543,11 +1673,20 @@ function attachEventsInActiveTab() {
 
     const openUploadBtn = document.getElementById('docs-open-upload');
     if (openUploadBtn) openUploadBtn.addEventListener('click', openUploadScreen);
+
+    document.querySelectorAll('[data-group]').forEach(button => {
+        button.addEventListener('click', () => {
+            state.libraryGrouping = button.dataset.group;
+            renderLibrary();
+            attachEventsInActiveTab();
+        });
+    });
 }
 
 function renderApp() {
     renderHome();
     renderDocs();
+    renderLibrary();
     renderNotifications();
     renderHistory();
 
