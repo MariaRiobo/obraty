@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obraty — Prototipo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app-shell">
+        <div id="app-container">
+            <section id="screen-login" class="screen full active">
+                <div class="hero-blueprint" aria-hidden="true">
+                    <span class="hero-blueprint__tag">Cocina · v1</span>
+                    <span class="hero-blueprint__pin"></span>
+                    <span class="hero-blueprint__line"></span>
+                </div>
+                <div class="hero-copy">
+                    <h1>Tu obra,<br>organizada.</h1>
+                    <p>Documentos, planos y mensajes del equipo en un solo lugar.</p>
+                </div>
+                <button class="btn btn-primary" id="btn-enter">Entrar</button>
+                <button class="btn btn-ghost">Crear cuenta</button>
+            </section>
+
+            <section id="screen-profiles" class="screen full">
+                <div class="screen-header static">
+                    <button class="icon-btn" id="back-login" aria-label="Volver">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2>¿Cómo trabajás?</h2>
+                </div>
+                <p class="subtle">Elegí tu rol para empezar.</p>
+                <div class="profile-grid">
+                    <button class="profile-card" data-role="developer">
+                        <span class="profile-icon"><i class="fas fa-building"></i></span>
+                        <span class="profile-title">Desarrolladora</span>
+                        <span class="profile-desc">Coordino la obra y aprobaciones.</span>
+                    </button>
+                    <button class="profile-card" data-role="architect">
+                        <span class="profile-icon"><i class="fas fa-helmet-safety"></i></span>
+                        <span class="profile-title">Arquitecto</span>
+                        <span class="profile-desc">Dirijo la ejecución técnica.</span>
+                    </button>
+                    <button class="profile-card" data-role="owner">
+                        <span class="profile-icon"><i class="fas fa-key"></i></span>
+                        <span class="profile-title">Propietario</span>
+                        <span class="profile-desc">Sigo el avance de mi unidad.</span>
+                    </button>
+                </div>
+            </section>
+
+            <section id="screen-app" class="screen">
+                <header class="screen-header">
+                    <button class="icon-btn" id="back-profiles" aria-label="Volver a la pestaña anterior">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="title-block">
+                        <p id="role-pill"></p>
+                        <h2 id="tab-title">Inicio</h2>
+                    </div>
+                    <div class="switcher-wrap">
+                        <label for="role-switcher" class="sr-only">Cambiar rol</label>
+                        <select id="role-switcher" aria-label="Cambiar rol"></select>
+                    </div>
+                </header>
+
+                <main id="content-area">
+                    <section id="tab-home" class="tab-screen active"></section>
+                    <section id="tab-docs" class="tab-screen"></section>
+                    <section id="tab-notifications" class="tab-screen"></section>
+                    <section id="tab-history" class="tab-screen"></section>
+                </main>
+
+                <div id="upload-picker" class="upload-picker" hidden role="dialog" aria-label="Origen del archivo">
+                    <div class="upload-picker__sheet">
+                        <p class="upload-picker__kicker">Nuevo documento</p>
+                        <h3>¿De dónde lo subís?</h3>
+                        <button type="button" class="picker-option" data-source="camera">
+                            <span class="picker-option__icon"><i class="fas fa-camera"></i></span>
+                            <span class="picker-option__body">
+                                <strong>Tomar foto</strong>
+                                <small>Sacá una foto del documento con la cámara.</small>
+                            </span>
+                            <i class="fas fa-chevron-right picker-option__arrow"></i>
+                        </button>
+                        <button type="button" class="picker-option" data-source="file">
+                            <span class="picker-option__icon"><i class="fas fa-folder-open"></i></span>
+                            <span class="picker-option__body">
+                                <strong>Elegir archivo</strong>
+                                <small>Subí un PDF o imagen desde tu dispositivo.</small>
+                            </span>
+                            <i class="fas fa-chevron-right picker-option__arrow"></i>
+                        </button>
+                        <button type="button" class="picker-cancel" id="picker-cancel">Cancelar</button>
+                    </div>
+                </div>
+
+                <aside id="plan-viewer" class="plan-viewer" hidden aria-label="Visor de documento">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="plan-viewer-close" aria-label="Cerrar visor">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker" id="plan-viewer-kicker">Documento</p>
+                            <h2 id="plan-viewer-title">Documento</h2>
+                        </div>
+                    </header>
+                    <div id="plan-viewer-body" class="plan-viewer__body"></div>
+                </aside>
+
+                <aside id="upload-screen" class="upload-screen" hidden aria-label="Subir documento">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="upload-close" aria-label="Volver a Documentos">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker">Nuevo</p>
+                            <h2>Subir documento</h2>
+                        </div>
+                    </header>
+                    <div id="upload-body" class="plan-viewer__body"></div>
+                </aside>
+
+                <button id="chat-bubble" class="chat-bubble" aria-label="Abrir ObraChat">
+                    <i class="fas fa-comment-dots"></i>
+                </button>
+
+                <div id="chat-backdrop" class="chat-backdrop" hidden></div>
+
+                <aside id="chat-panel" class="chat-panel" hidden aria-label="ObraChat">
+                    <header class="chat-panel__header">
+                        <div>
+                            <p class="chat-panel__kicker">Asistente</p>
+                            <h3>ObraChat</h3>
+                        </div>
+                        <button class="icon-btn" id="chat-close" aria-label="Cerrar">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </header>
+                    <div id="chat-messages" class="chat-messages"></div>
+                    <form id="chat-form" class="chat-composer" autocomplete="off">
+                        <input type="text" id="chat-input" placeholder="Escribí un mensaje…" aria-label="Mensaje">
+                        <button type="submit" class="chat-send" aria-label="Enviar">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </aside>
+
+                <nav class="tab-bar" aria-label="Navegación principal">
+                    <button class="tab-item active" data-tab="home">
+                        <i class="fas fa-house"></i>
+                        <span>Inicio</span>
+                    </button>
+                    <button class="tab-item" data-tab="docs">
+                        <i class="fas fa-folder-open"></i>
+                        <span>Documentos</span>
+                    </button>
+                    <button class="tab-item" data-tab="notifications">
+                        <i class="fas fa-bell"></i>
+                        <span>Alertas</span>
+                    </button>
+                    <button class="tab-item" data-tab="history">
+                        <i class="fas fa-clock-rotate-left"></i>
+                        <span>Historial</span>
+                    </button>
+                </nav>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
