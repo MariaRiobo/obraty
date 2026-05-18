@@ -84,6 +84,7 @@ const state = {
     libraryFolder: null,
     libraryFilter: 'all',
     librarySearch: '',
+    libraryView: 'list',
     focusThreadId: null,
     ownerCommentDone: false,
     mentionDone: false,
@@ -549,6 +550,8 @@ function selectProject(projectId) {
 }
 
 function renderProjectSwitcher() {
+    const wrap = document.getElementById('project-switcher');
+    if (wrap) wrap.hidden = state.currentRole === 'owner';
     const nameEl = document.getElementById('project-switcher-name');
     const menu = document.getElementById('project-switcher-menu');
     const btn = document.getElementById('project-switcher-btn');
@@ -592,8 +595,14 @@ function selectRole(roleId) {
     state.activeTab = 'home';
     state.libraryFolder = null;
     state.libraryFilterOpen = false;
-    state.currentProject = null;
     state.projectSwitcherOpen = false;
+    if (roleId === 'owner') {
+        state.currentProject = 'patria';
+        renderApp();
+        showScreen(screenApp);
+        return;
+    }
+    state.currentProject = null;
     renderProjectPicker();
     showScreen(screenProjectPicker);
 }
@@ -1389,20 +1398,9 @@ function renderLibrary() {
     }
 
     const projectDocs = state.documents.filter(doc => doc.projectId === state.currentProject);
-
+    const view = state.libraryView || 'list';
     const filter = state.libraryFilter || 'all';
     const query = (state.librarySearch || '').toLowerCase().trim();
-
-    const filterMatches = (doc) => {
-        if (filter === 'all') return true;
-        if (filter === 'mine') return doc.uploadedBy === state.currentRole;
-        return doc.uploadedBy === filter;
-    };
-
-    const visibleDocs = projectDocs.filter(doc =>
-        filterMatches(doc) &&
-        (!query || doc.name.toLowerCase().includes(query) || (doc.observation || '').toLowerCase().includes(query))
-    );
 
     const iconForDoc = (doc) => {
         if (doc.folder === 'Planos') return { icon: 'fa-drafting-compass', tone: 'blue' };
@@ -1450,31 +1448,136 @@ function renderLibrary() {
         `;
     };
 
+    const filtersBar = (extraLabel) => {
+        const viewLabel = view === 'type' ? 'Por tipo' : view === 'date' ? 'Por fecha' : 'Lista';
+        return `
+            <header class="files-head">
+                <h2 class="files-head__title">Mis archivos</h2>
+                <span class="files-head__role">${ROLES[state.currentRole]?.label || ''} <i class="fas fa-chevron-down"></i></span>
+            </header>
+
+            <div class="files-search-row">
+                <label class="files-search">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="search" id="library-search" placeholder="Buscar documentos…" value="${escapeHtml(query)}">
+                </label>
+                <div class="files-filter-wrap">
+                    <button type="button" class="files-filter-btn" id="library-filter-btn" aria-haspopup="menu" aria-expanded="${state.libraryFilterOpen}">
+                        <i class="fas fa-sliders"></i> ${viewLabel}
+                        <i class="fas fa-chevron-down files-filter-btn__caret"></i>
+                    </button>
+                    ${state.libraryFilterOpen ? `
+                        <div class="files-filter-menu" role="menu">
+                            <button type="button" data-set-view="list" class="${view === 'list' ? 'is-active' : ''}" role="menuitem">
+                                <i class="fas fa-list"></i><span>Ver como lista</span>${view === 'list' ? '<i class="fas fa-check files-filter-menu__check"></i>' : ''}
+                            </button>
+                            <button type="button" data-set-view="type" class="${view === 'type' ? 'is-active' : ''}" role="menuitem">
+                                <i class="fas fa-folder"></i><span>Por tipo de archivo</span>${view === 'type' ? '<i class="fas fa-check files-filter-menu__check"></i>' : ''}
+                            </button>
+                            <button type="button" data-set-view="date" class="${view === 'date' ? 'is-active' : ''}" role="menuitem">
+                                <i class="fas fa-calendar"></i><span>Por fecha de subida</span>${view === 'date' ? '<i class="fas fa-check files-filter-menu__check"></i>' : ''}
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    };
+
+    // --- Folder views ---
+    if (view === 'type' || view === 'date') {
+        const buildFolders = () => {
+            if (view === 'type') {
+                const order = [];
+                DOC_TYPES.forEach(t => { if (!order.includes(t.folder)) order.push(t.folder); });
+                projectDocs.forEach(d => { if (!order.includes(d.folder)) order.push(d.folder); });
+                return order
+                    .map(folder => {
+                        const docs = projectDocs.filter(d => d.folder === folder);
+                        if (!docs.length) return null;
+                        return { key: `type:${folder}`, label: folder, icon: 'fa-folder', docs };
+                    })
+                    .filter(Boolean);
+            }
+            const groups = new Map();
+            projectDocs.forEach(d => {
+                const key = new Date(d.createdAt).toISOString().slice(0, 10);
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(d);
+            });
+            return [...groups.keys()]
+                .sort((a, b) => b.localeCompare(a))
+                .map(dateKey => ({
+                    key: `date:${dateKey}`,
+                    label: formatDateFolderLabel(dateKey),
+                    icon: 'fa-calendar-day',
+                    docs: groups.get(dateKey)
+                }));
+        };
+
+        const folders = buildFolders();
+        const activeFolder = state.libraryFolder ? folders.find(f => f.key === state.libraryFolder) : null;
+
+        if (activeFolder) {
+            const sorted = [...activeFolder.docs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            container.innerHTML = `
+                ${filtersBar()}
+                <article class="folder-detail-card">
+                    <button type="button" class="folder-detail-card__back" id="library-back">
+                        <i class="fas fa-chevron-left"></i> Volver a las carpetas
+                    </button>
+                    <div class="folder-detail-card__head">
+                        <span class="folder-detail-card__icon"><i class="fas ${activeFolder.icon}"></i></span>
+                        <div>
+                            <h3>${escapeHtml(activeFolder.label)}</h3>
+                            <p>${sorted.length} ${sorted.length === 1 ? 'documento' : 'documentos'} · ordenados por fecha de subida</p>
+                        </div>
+                    </div>
+                </article>
+                <div class="file-list">${sorted.map(docCard).join('')}</div>
+            `;
+            return;
+        }
+
+        const foldersMarkup = folders.length
+            ? `<div class="folder-grid">${folders.map(f => `
+                    <button type="button" class="folder-row" data-open-folder="${escapeHtml(f.key)}">
+                        <span class="folder-row__icon"><i class="fas ${f.icon}"></i></span>
+                        <span class="folder-row__body">
+                            <span class="folder-row__name">${escapeHtml(f.label)}</span>
+                            <span class="folder-row__count">${f.docs.length} ${f.docs.length === 1 ? 'documento' : 'documentos'}</span>
+                        </span>
+                        <i class="fas fa-chevron-right folder-row__chevron"></i>
+                    </button>
+                `).join('')}</div>`
+            : '<div class="section-card"><p class="section-sub">No hay documentos cargados todavía.</p></div>';
+
+        container.innerHTML = `${filtersBar()}${foldersMarkup}`;
+        return;
+    }
+
+    // --- List view (default) ---
+    const filterMatches = (doc) => {
+        if (filter === 'all') return true;
+        if (filter === 'mine') return doc.uploadedBy === state.currentRole;
+        return doc.uploadedBy === filter;
+    };
+    const visibleDocs = projectDocs.filter(doc =>
+        filterMatches(doc) &&
+        (!query || doc.name.toLowerCase().includes(query) || (doc.observation || '').toLowerCase().includes(query))
+    );
     const chip = (id, label, dot) => `
         <button type="button" class="files-chip ${filter === id ? 'is-active' : ''}" data-filter="${id}">
             ${dot ? `<span class="dot dot--${dot}"></span>` : ''}
             ${label}
         </button>
     `;
-
     const listMarkup = visibleDocs.length
         ? `<div class="file-list">${visibleDocs.map(docCard).join('')}</div>`
         : '<div class="section-card"><p class="section-sub">No hay documentos que coincidan con el filtro.</p></div>';
 
     container.innerHTML = `
-        <header class="files-head">
-            <h2 class="files-head__title">Mis archivos</h2>
-            <span class="files-head__role">${ROLES[state.currentRole]?.label || ''} <i class="fas fa-chevron-down"></i></span>
-        </header>
-
-        <div class="files-search-row">
-            <label class="files-search">
-                <i class="fas fa-magnifying-glass"></i>
-                <input type="search" id="library-search" placeholder="Buscar documentos…" value="${escapeHtml(query)}">
-            </label>
-            <button type="button" class="files-filter-btn"><i class="fas fa-sliders"></i> Filtros</button>
-        </div>
-
+        ${filtersBar()}
         <div class="files-chips">
             ${chip('all', 'Todos')}
             ${chip('mine', 'Subidos por mí')}
@@ -1482,7 +1585,6 @@ function renderLibrary() {
             ${chip('architect', 'Arquitecto', 'orange')}
             ${chip('escribania', 'Escribanía', 'gray')}
         </div>
-
         ${listMarkup}
     `;
 }
@@ -2254,6 +2356,45 @@ function attachEventsInActiveTab() {
         });
     });
 
+    const libFilterBtn = document.getElementById('library-filter-btn');
+    if (libFilterBtn) {
+        libFilterBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            state.libraryFilterOpen = !state.libraryFilterOpen;
+            renderLibrary();
+            attachEventsInActiveTab();
+            if (state.libraryFilterOpen) bindFilterMenuOutsideClick();
+        });
+    }
+
+    document.querySelectorAll('[data-set-view]').forEach(item => {
+        item.addEventListener('click', (event) => {
+            event.stopPropagation();
+            state.libraryView = item.dataset.setView;
+            state.libraryFolder = null;
+            state.libraryFilterOpen = false;
+            renderLibrary();
+            attachEventsInActiveTab();
+        });
+    });
+
+    document.querySelectorAll('[data-open-folder]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.libraryFolder = btn.dataset.openFolder;
+            renderLibrary();
+            attachEventsInActiveTab();
+        });
+    });
+
+    const libBack = document.getElementById('library-back');
+    if (libBack) {
+        libBack.addEventListener('click', () => {
+            state.libraryFolder = null;
+            renderLibrary();
+            attachEventsInActiveTab();
+        });
+    }
+
     const searchInput = document.getElementById('library-search');
     if (searchInput) {
         searchInput.addEventListener('input', () => {
@@ -2272,44 +2413,6 @@ function attachEventsInActiveTab() {
         });
     }
 
-    document.querySelectorAll('[data-group]').forEach(button => {
-        button.addEventListener('click', () => {
-            const next = button.dataset.group;
-            if (state.libraryGrouping !== next) {
-                state.libraryGrouping = next;
-                state.libraryFolder = null;
-            }
-            state.libraryFilterOpen = false;
-            renderLibrary();
-            attachEventsInActiveTab();
-        });
-    });
-
-    const filterBtn = document.getElementById('library-filter-btn');
-    if (filterBtn) {
-        filterBtn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            state.libraryFilterOpen = !state.libraryFilterOpen;
-            renderLibrary();
-            attachEventsInActiveTab();
-            if (state.libraryFilterOpen) bindFilterMenuOutsideClick();
-        });
-    }
-
-    document.querySelectorAll('[data-open-folder]').forEach(button => {
-        button.addEventListener('click', () => {
-            state.libraryFolder = button.dataset.openFolder;
-            renderApp();
-        });
-    });
-
-    const libraryBack = document.getElementById('library-back');
-    if (libraryBack) {
-        libraryBack.addEventListener('click', () => {
-            state.libraryFolder = null;
-            renderApp();
-        });
-    }
 }
 
 function bindFilterMenuOutsideClick() {

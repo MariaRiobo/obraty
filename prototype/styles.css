@@ -1968,7 +1968,12 @@ body {
     min-width: 0;
 }
 
+.files-filter-wrap {
+    position: relative;
+}
+
 .files-filter-btn {
+    height: 100%;
     background: var(--surface);
     border: 1px solid var(--line-gray);
     border-radius: 12px;
@@ -1984,9 +1989,139 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
-.files-filter-btn i {
+.files-filter-btn:hover {
+    border-color: var(--assistant-olive);
+}
+
+.files-filter-btn > i:first-child {
     color: var(--text-muted);
+    font-size: 12px;
+}
+
+.files-filter-btn__caret {
+    color: var(--text-muted);
+    font-size: 9px;
+    margin-left: 4px;
+    transition: transform 0.2s ease;
+}
+
+.files-filter-btn[aria-expanded="true"] .files-filter-btn__caret {
+    transform: rotate(180deg);
+}
+
+.files-filter-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    border-radius: 13px;
+    padding: 6px;
+    display: grid;
+    gap: 2px;
+    min-width: 230px;
+    box-shadow: var(--shadow-md);
+    z-index: 20;
+    animation: fadeIn 0.18s ease;
+}
+
+.files-filter-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border: 0;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dark);
+    cursor: pointer;
+    border-radius: 8px;
+    text-align: left;
+    width: 100%;
+    transition: background 0.15s ease;
+}
+
+.files-filter-menu button:hover {
+    background: var(--surface-tint);
+}
+
+.files-filter-menu button.is-active {
+    background: var(--assistant-olive-soft);
+    color: var(--assistant-olive-deep);
+}
+
+.files-filter-menu button > i:first-child {
+    color: var(--assistant-olive-deep);
+    font-size: 12px;
+    width: 16px;
+    text-align: center;
+}
+
+.files-filter-menu__check {
+    margin-left: auto;
+    color: var(--assistant-olive-deep);
     font-size: 11px;
+}
+
+/* Folder detail header (when a folder is opened) */
+.folder-detail-card {
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    border-radius: 16px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 12px;
+}
+
+.folder-detail-card__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 0;
+    padding: 2px 0 10px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--assistant-olive-deep);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.folder-detail-card__back:hover {
+    opacity: 0.8;
+}
+
+.folder-detail-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.folder-detail-card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(79, 111, 82, 0.22), rgba(79, 111, 82, 0.08));
+    color: var(--assistant-olive-deep);
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.folder-detail-card__head h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.15;
+    margin-bottom: 3px;
+}
+
+.folder-detail-card__head p {
+    font-size: 11px;
+    color: var(--text-muted);
 }
 
 .files-chips {
@@ -2302,6 +2437,10 @@ body {
     position: relative;
     margin-top: 8px;
     display: inline-block;
+}
+
+.project-switcher[hidden] {
+    display: none !important;
 }
 
 .project-switcher__chip {
