@@ -10,7 +10,7 @@ const EVENT_LABELS = {
     UPLOAD_CREATED: 'Documento cargado',
     NOTIFICATION_SENT: 'Alerta enviada',
     COMMENT_ADDED: 'Comentario',
-    TECH_REPLY_ADDED: 'Respuesta del arquitecto',
+    TECH_REPLY_ADDED: 'Respuesta del equipo técnico',
     VERSION_EVENT_LOGGED: 'Cambio registrado'
 };
 
@@ -49,7 +49,7 @@ const ROLES = {
     },
     architect: {
         id: 'architect',
-        label: 'Arquitecto',
+        label: 'Equipo técnico',
         homeTitle: 'Mis obras'
     },
     owner: {
@@ -69,6 +69,10 @@ const TAB_TITLES = {
 
 function tabTitleFor(tabId) {
     if (tabId === 'docs' && state.currentRole === 'owner') return 'Mis documentos';
+    if (state.currentRole === 'owner') {
+        if (tabId === 'notifications') return 'Comunicados';
+        if (tabId === 'history') return 'Mi perfil';
+    }
     return TAB_TITLES[tabId] || '';
 }
 
@@ -400,7 +404,7 @@ function activeThread() {
 
 function roleLabel(roleId) {
     if (roleId === 'developer') return 'Desarrolladora';
-    if (roleId === 'architect') return 'Arquitecto';
+    if (roleId === 'architect') return 'Equipo técnico';
     if (roleId === 'owner') return 'Propietario';
     return 'Sistema';
 }
@@ -715,7 +719,7 @@ function mentionArchitect() {
     }
 
     if (state.mentionDone) {
-        showToast('Ya consultaste al arquitecto.');
+        showToast('Ya consultaste al equipo técnico.');
         return;
     }
 
@@ -725,7 +729,7 @@ function mentionArchitect() {
     thread.comments.push({
         id: `comment-dev-${Date.now()}`,
         authorRole: 'developer',
-        text: '@Arquitecto, ¿podemos mover esa pared?',
+        text: '@Equipo técnico, ¿podemos mover esa pared?',
         type: 'mention',
         createdAt: isoNow()
     });
@@ -735,7 +739,7 @@ function mentionArchitect() {
     pushVersionEvent(EVENT_TYPES.COMMENT_ADDED, {
         actorRole: 'developer',
         documentId: thread.documentId,
-        text: 'La desarrolladora consultó al arquitecto.'
+        text: 'La desarrolladora consultó al equipo técnico.'
     });
 
     addNotification({
@@ -748,7 +752,7 @@ function mentionArchitect() {
     });
 
     renderApp();
-    showToast('Arquitecto notificado.');
+    showToast('Equipo técnico notificado.');
 }
 
 function generateBudgetRequest() {
@@ -806,12 +810,12 @@ function architectTechnicalReply() {
     pushVersionEvent(EVENT_TYPES.TECH_REPLY_ADDED, {
         actorRole: 'architect',
         documentId: thread.documentId,
-        text: 'El arquitecto respondió y marcó la columna en el plano.'
+        text: 'El equipo técnico respondió y marcó la columna en el plano.'
     });
 
     addNotification({
         type: 'comment',
-        title: 'Respuesta del arquitecto',
+        title: 'Respuesta del equipo técnico',
         message: 'El cambio no es posible: hay una columna estructural.',
         targets: ['developer', 'owner'],
         context: { tab: 'plan', threadId: thread.id },
@@ -900,19 +904,97 @@ function renderHome() {
     }
 
     if (role === 'owner') {
-        home.innerHTML = `
-            <article class="section-card">
-                <h3 class="section-title">${project.ownerUnit}</h3>
-                <p class="section-sub">${project.name} · Entrega estimada en 3 meses.</p>
-                <div class="progress-wrap">
-                    <div class="progress-track"><div class="progress-fill" style="width: ${project.progress}%"></div></div>
-                    <div class="progress-label">${project.progress}% completado</div>
+        const stage = project.ownerStage || 'Albañilería';
+        const stageProgress = project.progress;
+        const lastUpdate = project.ownerLastUpdate || 'Actualizado hace 2 días';
+        const news = project.ownerNews || {
+            date: '12 de mayo, 2024',
+            title: 'Se completaron muros en unidades del piso 6 al 8',
+            description: 'Inicio de trabajos en mampostería de paliers.',
+            photos: 8
+        };
+        const keyDocs = project.ownerKeyDocs || [
+            { icon: 'fa-solid fa-compass-drafting', title: 'Plano de estructura', date: '10/05' },
+            { icon: 'fa-solid fa-shield-halved', title: 'Póliza de seguro de obra', date: '08/05' },
+            { icon: 'fa-solid fa-stamp', title: 'Permiso de obra', date: '05/05' },
+            { icon: 'fa-solid fa-file-signature', title: 'Contrato con constructora', date: '01/05' }
+        ];
+        const upcoming = project.ownerUpcoming || [
+            { icon: 'fa-trowel-bricks', title: 'Finalización de mampostería', date: '20 de mayo, 2024', status: 'in_progress' },
+            { icon: 'fa-door-open', title: 'Colocación de aberturas', date: '05 de junio, 2024', status: 'pending' }
+        ];
+
+        const docsGrid = keyDocs.map(d => `
+            <button type="button" class="quick-doc">
+                <span class="quick-doc__icon"><i class="${d.icon}"></i></span>
+                <span class="quick-doc__title">${d.title}</span>
+                <small class="quick-doc__date">Actualizado ${d.date}</small>
+            </button>
+        `).join('');
+
+        const upcomingMarkup = upcoming.map(m => {
+            const badgeClass = m.status === 'in_progress' ? 'badge-action' : 'badge-neutral';
+            const badgeText = m.status === 'in_progress' ? 'En curso' : 'Próximo';
+            return `
+                <div class="milestone-row">
+                    <span class="milestone-row__icon"><i class="fas ${m.icon}"></i></span>
+                    <div class="milestone-row__body">
+                        <h5>${m.title}</h5>
+                        <small><i class="far fa-calendar"></i> ${m.date}</small>
+                    </div>
+                    <span class="badge ${badgeClass}">${badgeText}</span>
                 </div>
+            `;
+        }).join('');
+
+        home.innerHTML = `
+            <article class="property-banner">
+                <span class="property-banner__icon"><i class="fas fa-city"></i></span>
+                <div class="property-banner__body">
+                    <h3>${project.name}</h3>
+                    <p>${project.ownerUnit} · Piso 7</p>
+                </div>
+                <span class="status-pill"><span class="status-pill__dot"></span>En construcción</span>
             </article>
-            <article class="section-card">
-                <h3 class="section-title">Próximos hitos</h3>
-                ${milestones}
+
+            <article class="process-card">
+                <div class="process-card__info">
+                    <h4 class="process-card__title">Proceso de obra</h4>
+                    <p class="process-card__kicker">Etapa actual</p>
+                    <p class="process-card__stage">${stage}</p>
+                    <div class="process-card__pct">${stageProgress}%</div>
+                    <p class="process-card__pct-label">de avance general</p>
+                    <div class="progress-track"><div class="progress-fill" style="width: ${stageProgress}%"></div></div>
+                    <p class="process-card__meta"><i class="far fa-calendar"></i> ${lastUpdate}</p>
+                    <button type="button" class="btn-pill-primary">Ver proceso completo <i class="fas fa-arrow-right"></i></button>
+                </div>
+                <div class="process-card__photo"><i class="fas fa-building"></i></div>
             </article>
+
+            <header class="owner-section-head">
+                <h4>Lo último en tu obra</h4>
+                <a class="owner-section-link">Ver todas las novedades <i class="fas fa-chevron-right"></i></a>
+            </header>
+            <article class="update-card">
+                <div class="update-card__photo"><i class="fas fa-image"></i></div>
+                <div class="update-card__body">
+                    <small class="update-card__date">${news.date}</small>
+                    <h5>${news.title}</h5>
+                    <p>${news.description}</p>
+                </div>
+                <span class="update-card__badge">${news.photos} fotos <i class="fas fa-chevron-right"></i></span>
+            </article>
+
+            <header class="owner-section-head">
+                <h4>Documentos importantes</h4>
+                <a class="owner-section-link">Ver todos <i class="fas fa-chevron-right"></i></a>
+            </header>
+            <div class="quick-doc-grid">${docsGrid}</div>
+
+            <header class="owner-section-head">
+                <h4>Hitos próximos</h4>
+            </header>
+            <div class="milestone-list">${upcomingMarkup}</div>
         `;
     }
 }
@@ -1258,7 +1340,7 @@ function renderPlanViewer() {
 
     const developerActions = (isPlan && role === 'developer') ? `
         <div class="inline-actions">
-            <button class="btn-small action" id="developer-mention-cta" ${state.ownerCommentDone && !state.mentionDone ? '' : 'disabled'}>Consultar al arquitecto</button>
+            <button class="btn-small action" id="developer-mention-cta" ${state.ownerCommentDone && !state.mentionDone ? '' : 'disabled'}>Consultar al equipo técnico</button>
             <button class="btn-small olive" id="developer-budget-cta" ${state.mentionDone && !state.budgetRequested ? '' : 'disabled'}>Pedir presupuesto</button>
         </div>
     ` : '';
@@ -1437,6 +1519,46 @@ function renderNotifications() {
 
 function renderHistory() {
     const container = document.getElementById('tab-history');
+
+    if (state.currentRole === 'owner') {
+        const project = activeProject();
+        container.innerHTML = `
+            <article class="profile-card-owner">
+                <div class="profile-card-owner__avatar"></div>
+                <h3 class="profile-card-owner__name">María Riobó</h3>
+                <p class="profile-card-owner__sub">${project ? project.name : ''} · ${project ? project.ownerUnit : ''}</p>
+                <span class="status-pill"><span class="status-pill__dot"></span>Propietaria</span>
+            </article>
+            <div class="profile-list">
+                <button class="profile-list__row" type="button">
+                    <span class="profile-list__icon"><i class="far fa-user"></i></span>
+                    <span class="profile-list__label">Datos personales</span>
+                    <i class="fas fa-chevron-right profile-list__chev"></i>
+                </button>
+                <button class="profile-list__row" type="button">
+                    <span class="profile-list__icon"><i class="far fa-bell"></i></span>
+                    <span class="profile-list__label">Preferencias de notificaciones</span>
+                    <i class="fas fa-chevron-right profile-list__chev"></i>
+                </button>
+                <button class="profile-list__row" type="button">
+                    <span class="profile-list__icon"><i class="fas fa-shield-halved"></i></span>
+                    <span class="profile-list__label">Seguridad y privacidad</span>
+                    <i class="fas fa-chevron-right profile-list__chev"></i>
+                </button>
+                <button class="profile-list__row" type="button">
+                    <span class="profile-list__icon"><i class="far fa-circle-question"></i></span>
+                    <span class="profile-list__label">Ayuda y soporte</span>
+                    <i class="fas fa-chevron-right profile-list__chev"></i>
+                </button>
+                <button class="profile-list__row profile-list__row--danger" type="button">
+                    <span class="profile-list__icon"><i class="fas fa-right-from-bracket"></i></span>
+                    <span class="profile-list__label">Cerrar sesión</span>
+                </button>
+            </div>
+        `;
+        return;
+    }
+
     const historyRows = state.versionHistory
         .filter(row => row.projectId === state.currentProject)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -1470,6 +1592,25 @@ function updateHeader() {
     rolePill.textContent = role.label;
     tabTitle.textContent = state.activeTab === 'home' ? role.homeTitle : tabTitleFor(state.activeTab);
 
+    const header = document.querySelector('#screen-app .screen-header');
+    const brandHeader = document.getElementById('brand-header');
+    const useBrand = state.currentRole === 'owner' && state.activeTab === 'home';
+    if (header) header.classList.toggle('screen-header--brand', useBrand);
+    if (brandHeader) {
+        brandHeader.hidden = !useBrand;
+        if (useBrand) {
+            const notifBadgeCount = state.notifications
+                .filter(n => n.targets.includes('owner'))
+                .filter(n => (n.projectId === state.currentProject || n.projectId === 'global'))
+                .filter(n => !n.readBy.includes('owner')).length;
+            const badge = document.getElementById('brand-header-badge');
+            if (badge) {
+                badge.textContent = notifBadgeCount;
+                badge.hidden = notifBadgeCount === 0;
+            }
+        }
+    }
+
     const showLibrary = state.currentRole !== 'owner';
     const tabBar = document.querySelector('.tab-bar');
     if (tabBar) tabBar.dataset.tabs = showLibrary ? '5' : '4';
@@ -1489,8 +1630,26 @@ function updateHeader() {
         .filter(notification => (notification.projectId === state.currentProject || notification.projectId === 'global'))
         .filter(notification => !notification.readBy.includes(state.currentRole)).length;
 
-    const notifTabLabel = document.querySelector('.tab-item[data-tab="notifications"] span');
-    notifTabLabel.textContent = notifCount > 0 ? `Alertas (${notifCount})` : 'Alertas';
+    const notifTabLabel = document.querySelector('[data-tab-label="notifications"]');
+    const notifTabIcon = document.querySelector('[data-tab-icon="notifications"]');
+    const historyTabLabel = document.querySelector('[data-tab-label="history"]');
+    const historyTabIcon = document.querySelector('[data-tab-icon="history"]');
+
+    if (state.currentRole === 'owner') {
+        notifTabLabel.textContent = notifCount > 0 ? `Comunicados (${notifCount})` : 'Comunicados';
+        notifTabIcon.className = 'far fa-comment-dots';
+        notifTabIcon.dataset.tabIcon = 'notifications';
+        historyTabLabel.textContent = 'Mi perfil';
+        historyTabIcon.className = 'far fa-user';
+        historyTabIcon.dataset.tabIcon = 'history';
+    } else {
+        notifTabLabel.textContent = notifCount > 0 ? `Alertas (${notifCount})` : 'Alertas';
+        notifTabIcon.className = 'fas fa-bell';
+        notifTabIcon.dataset.tabIcon = 'notifications';
+        historyTabLabel.textContent = 'Historial';
+        historyTabIcon.className = 'fas fa-clock-rotate-left';
+        historyTabIcon.dataset.tabIcon = 'history';
+    }
 
     const backBtn = document.getElementById('back-profiles');
     if (backBtn) {
@@ -1506,22 +1665,22 @@ function chatMessagesForRole() {
     const messages = [];
 
     if (role === 'developer') {
-        messages.push({ from: 'bot', text: `Hola. Estoy acá para ayudarte con ${projectName}.` });
+        messages.push({ from: 'bot', text: '¡Hola! ¿En qué te ayudo hoy?' });
         if (!state.ownerCommentDone) {
             messages.push({ from: 'bot', text: 'Por ahora no hay pedidos de cambio. Te aviso cuando aparezca alguno.' });
         } else if (state.ownerCommentDone && !state.mentionDone) {
-            messages.push({ from: 'bot', text: 'El propietario pidió un cambio en la cocina. ¿Querés que consulte al arquitecto?' , action: { fn: 'mention', label: 'Consultar al arquitecto' } });
+            messages.push({ from: 'bot', text: 'El propietario pidió un cambio en la cocina. ¿Querés que consulte al equipo técnico?' , action: { fn: 'mention', label: 'Consultar al equipo técnico' } });
         } else if (state.mentionDone && !state.techResponseDone) {
-            messages.push({ from: 'bot', text: 'Ya consulté al arquitecto. Te aviso apenas responda.' });
+            messages.push({ from: 'bot', text: 'Ya consulté al equipo técnico. Te aviso apenas responda.' });
         } else if (state.techResponseDone && !state.budgetRequested) {
-            messages.push({ from: 'bot', text: 'El arquitecto respondió. ¿Querés que prepare un pedido de presupuesto?', action: { fn: 'budget', label: 'Pedir presupuesto' } });
+            messages.push({ from: 'bot', text: 'El equipo técnico respondió. ¿Querés que prepare un pedido de presupuesto?', action: { fn: 'budget', label: 'Pedir presupuesto' } });
         } else if (state.budgetRequested) {
             messages.push({ from: 'bot', text: 'Listo. El pedido de presupuesto quedó registrado en el Historial.' });
         }
     }
 
     if (role === 'architect') {
-        messages.push({ from: 'bot', text: `Hola. ¿Te ayudo con algo de ${projectName}?` });
+        messages.push({ from: 'bot', text: '¡Hola! ¿En qué te ayudo hoy?' });
         if (state.ownerCommentDone && !state.techResponseDone) {
             messages.push({ from: 'bot', text: 'El propietario consultó por la cocina. Cuando respondas, te conviene sumar una foto del lugar.' });
         }
@@ -1531,12 +1690,12 @@ function chatMessagesForRole() {
     }
 
     if (role === 'owner') {
-        messages.push({ from: 'bot', text: 'Hola. Si tenés alguna duda del plano, mantené el dedo donde quieras comentar.' });
+        messages.push({ from: 'bot', text: '¡Hola! ¿En qué te ayudo hoy?' });
         if (state.ownerCommentDone && !state.techResponseDone) {
             messages.push({ from: 'bot', text: 'Tu consulta ya está en manos del equipo. Te aviso apenas respondan.' });
         }
         if (state.techResponseDone) {
-            messages.push({ from: 'bot', text: 'El arquitecto te respondió. Mirá en la pestaña Plano la marca en rojo.' });
+            messages.push({ from: 'bot', text: 'El equipo técnico te respondió. Mirá en la pestaña Plano la marca en rojo.' });
         }
     }
 
@@ -1573,7 +1732,7 @@ function renderChat() {
 function handleChatAction(action) {
     if (action === 'mention') {
         chatState.history.push({ from: 'user', text: 'Sí, consultalo' });
-        chatState.history.push({ from: 'bot', text: 'Listo. Te aviso apenas el arquitecto responda.' });
+        chatState.history.push({ from: 'bot', text: 'Listo. Te aviso apenas el equipo técnico responda.' });
         mentionArchitect();
         return;
     }
@@ -1600,14 +1759,14 @@ function generateBotReply(userText) {
         if (role === 'developer') {
             if (state.budgetRequested) return { from: 'bot', text: 'Ya generamos un pedido de presupuesto. Lo ves en el Historial.' };
             if (state.mentionDone) return { from: 'bot', text: 'Puedo armarlo ahora mismo.', action: { fn: 'budget', label: 'Pedir presupuesto' } };
-            return { from: 'bot', text: 'Conviene primero consultar al arquitecto sobre el cambio pedido.' };
+            return { from: 'bot', text: 'Conviene primero consultar al equipo técnico sobre el cambio pedido.' };
         }
         return { from: 'bot', text: 'Los presupuestos los maneja la desarrolladora.' };
     }
 
     if (/arquit/.test(text) && role === 'developer') {
         if (state.mentionDone) return { from: 'bot', text: 'Ya lo consulté. Te aviso cuando responda.' };
-        if (state.ownerCommentDone) return { from: 'bot', text: 'Puedo consultarlo por vos.', action: { fn: 'mention', label: 'Consultar al arquitecto' } };
+        if (state.ownerCommentDone) return { from: 'bot', text: 'Puedo consultarlo por vos.', action: { fn: 'mention', label: 'Consultar al equipo técnico' } };
         return { from: 'bot', text: 'Por ahora no hay pedidos que requieran consulta.' };
     }
 
@@ -1623,7 +1782,7 @@ function generateBotReply(userText) {
 
     if (/(escanear|remito|insumo|hierro|hormig)/.test(text)) {
         if (role === 'architect') return { from: 'bot', text: 'Escaneá los remitos desde la pestaña Documentos.' };
-        return { from: 'bot', text: 'Los remitos los carga el arquitecto desde Documentos.' };
+        return { from: 'bot', text: 'Los remitos los carga el equipo técnico desde Documentos.' };
     }
 
     if (/(alerta|notific)/.test(text)) {

@@ -8,22 +8,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
     <div id="app-shell">
         <div id="app-container">
             <section id="screen-login" class="screen full active">
-                <div class="hero-blueprint" aria-hidden="true">
-                    <span class="hero-blueprint__tag">Cocina · v1</span>
-                    <span class="hero-blueprint__pin"></span>
-                    <span class="hero-blueprint__line"></span>
+                <div class="hero-logo">
+                    <img src="obraty_logo.png?v=2" alt="obraty" class="hero-logo__img">
                 </div>
                 <div class="hero-copy">
                     <h1>Tu obra,<br>organizada.</h1>
                     <p>Documentos, planos y mensajes del equipo en un solo lugar.</p>
                 </div>
-                <button class="btn btn-primary" id="btn-enter">Entrar</button>
+                <button class="btn btn-primary" id="btn-enter">Ingresar</button>
                 <button class="btn btn-ghost">Crear cuenta</button>
             </section>
 
@@ -39,17 +37,14 @@
                     <button class="profile-card" data-role="developer">
                         <span class="profile-icon"><i class="fas fa-building"></i></span>
                         <span class="profile-title">Desarrolladora</span>
-                        <span class="profile-desc">Coordino la obra y aprobaciones.</span>
                     </button>
                     <button class="profile-card" data-role="architect">
                         <span class="profile-icon"><i class="fas fa-helmet-safety"></i></span>
-                        <span class="profile-title">Arquitecto</span>
-                        <span class="profile-desc">Dirijo la ejecución técnica.</span>
+                        <span class="profile-title">Equipo técnico</span>
                     </button>
                     <button class="profile-card" data-role="owner">
                         <span class="profile-icon"><i class="fas fa-key"></i></span>
                         <span class="profile-title">Propietario</span>
-                        <span class="profile-desc">Sigo el avance de mi unidad.</span>
                     </button>
                 </div>
             </section>
@@ -66,6 +61,22 @@
                     <div class="switcher-wrap">
                         <label for="role-switcher" class="sr-only">Cambiar rol</label>
                         <select id="role-switcher" aria-label="Cambiar rol"></select>
+                    </div>
+                    <div class="brand-header" id="brand-header" hidden>
+                        <div class="brand-header__brand">
+                            <h1 class="brand-header__logo">obraty</h1>
+                            <p class="brand-header__tagline">Pasaporte Digital de tu propiedad</p>
+                        </div>
+                        <div class="brand-header__actions">
+                            <button type="button" class="brand-header__bell" aria-label="Notificaciones">
+                                <i class="far fa-bell"></i>
+                                <span class="brand-header__bell-badge" id="brand-header-badge">3</span>
+                            </button>
+                            <button type="button" class="brand-header__avatar" aria-label="Mi perfil">
+                                <span class="brand-header__avatar-img"></span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
                     </div>
                 </header>
 
@@ -166,12 +177,12 @@
                         <span>Documentos</span>
                     </button>
                     <button class="tab-item" data-tab="notifications">
-                        <i class="fas fa-bell"></i>
-                        <span>Alertas</span>
+                        <i class="fas fa-bell" data-tab-icon="notifications"></i>
+                        <span data-tab-label="notifications">Alertas</span>
                     </button>
                     <button class="tab-item" data-tab="history">
-                        <i class="fas fa-clock-rotate-left"></i>
-                        <span>Historial</span>
+                        <i class="fas fa-clock-rotate-left" data-tab-icon="history"></i>
+                        <span data-tab-label="history">Historial</span>
                     </button>
                 </nav>
             </section>
@@ -179,6 +190,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=9"></script>
 </body>
 </html>
