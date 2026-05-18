@@ -6,9 +6,9 @@
     <title>Obraty — Prototipo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
     <div id="app-shell">
@@ -49,6 +49,17 @@
                 </div>
             </section>
 
+            <section id="screen-project-picker" class="screen full">
+                <div class="screen-header static">
+                    <button class="icon-btn" id="back-to-profiles" aria-label="Volver">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h2>Elegí una obra</h2>
+                </div>
+                <p class="subtle">Vas a ver la información de la obra que elijas. Después podés cambiarla desde el header.</p>
+                <div class="project-picker-list" id="project-picker-list"></div>
+            </section>
+
             <section id="screen-app" class="screen">
                 <header class="screen-header">
                     <button class="icon-btn" id="back-profiles" aria-label="Volver a la pestaña anterior">
@@ -66,16 +77,14 @@
                         <div class="brand-header__brand">
                             <h1 class="brand-header__logo">obraty</h1>
                             <p class="brand-header__tagline">Pasaporte Digital de tu propiedad</p>
-                        </div>
-                        <div class="brand-header__actions">
-                            <button type="button" class="brand-header__bell" aria-label="Notificaciones">
-                                <i class="far fa-bell"></i>
-                                <span class="brand-header__bell-badge" id="brand-header-badge">3</span>
-                            </button>
-                            <button type="button" class="brand-header__avatar" aria-label="Mi perfil">
-                                <span class="brand-header__avatar-img"></span>
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
+                            <div class="project-switcher" id="project-switcher">
+                                <button type="button" class="project-switcher__chip" id="project-switcher-btn" aria-haspopup="listbox" aria-expanded="false">
+                                    <i class="fas fa-location-dot"></i>
+                                    <span id="project-switcher-name">Elegí una obra</span>
+                                    <i class="fas fa-chevron-down project-switcher__caret"></i>
+                                </button>
+                                <div class="project-switcher__menu" id="project-switcher-menu" hidden role="listbox"></div>
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -138,6 +147,12 @@
                     <div id="upload-body" class="plan-viewer__body"></div>
                 </aside>
 
+                <div id="library-upload-bar" class="library-upload-bar" hidden>
+                    <button type="button" class="library-upload-bar__btn" id="library-upload-btn">
+                        <i class="fas fa-cloud-arrow-up"></i> Subir documento
+                    </button>
+                </div>
+
                 <button id="chat-bubble" class="chat-bubble" aria-label="Abrir ObraChat">
                     <i class="fas fa-comment-dots"></i>
                 </button>
@@ -190,6 +205,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=22"></script>
 </body>
 </html>

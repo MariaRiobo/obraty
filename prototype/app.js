@@ -68,21 +68,22 @@ const TAB_TITLES = {
 };
 
 function tabTitleFor(tabId) {
-    if (tabId === 'docs' && state.currentRole === 'owner') return 'Mis documentos';
-    if (state.currentRole === 'owner') {
-        if (tabId === 'notifications') return 'Comunicados';
-        if (tabId === 'history') return 'Mi perfil';
-    }
+    if (tabId === 'library') return 'Documentos';
+    if (tabId === 'notifications') return 'Comunicados';
+    if (tabId === 'history') return 'Mi perfil';
     return TAB_TITLES[tabId] || '';
 }
 
 const state = {
     currentRole: null,
-    currentProject: 'patria',
+    currentProject: null,
+    projectSwitcherOpen: false,
     activeTab: 'home',
     libraryGrouping: 'type',
     libraryFilterOpen: false,
     libraryFolder: null,
+    libraryFilter: 'all',
+    librarySearch: '',
     focusThreadId: null,
     ownerCommentDone: false,
     mentionDone: false,
@@ -95,6 +96,8 @@ const state = {
         {
             id: 'patria',
             name: 'Edificio Patria',
+            location: 'Palermo, CABA',
+            etapa: 'Estructura',
             ownerUnit: 'Unidad 4A',
             pendingActions: 3,
             fieldTasks: 5,
@@ -108,6 +111,8 @@ const state = {
         {
             id: 'loft',
             name: 'Loft Palermo',
+            location: 'Palermo, CABA',
+            etapa: 'Instalaciones',
             ownerUnit: 'Unidad 9C',
             pendingActions: 1,
             fieldTasks: 2,
@@ -116,6 +121,49 @@ const state = {
                 { text: 'Demolición y nivelación', status: 'done' },
                 { text: 'Hormigonado de losa', status: 'in_progress' },
                 { text: 'Definición de cocina', status: 'pending' }
+            ]
+        },
+        {
+            id: 'olivares',
+            name: 'Torre Olivares',
+            location: 'Villa Urquiza, CABA',
+            etapa: 'Terminaciones',
+            ownerUnit: 'Unidad 7B',
+            pendingActions: 2,
+            fieldTasks: 3,
+            progress: 88,
+            milestones: [
+                { text: 'Pintura interior', status: 'in_progress' },
+                { text: 'Colocación de pisos', status: 'in_progress' },
+                { text: 'Final de obra', status: 'pending' }
+            ]
+        },
+        {
+            id: 'centro',
+            name: 'Edificio Centro',
+            location: 'Belgrano, CABA',
+            etapa: 'Estructura',
+            ownerUnit: 'Unidad 2C',
+            pendingActions: 4,
+            fieldTasks: 6,
+            progress: 30,
+            milestones: [
+                { text: 'Hormigonado losa 3', status: 'in_progress' },
+                { text: 'Mampostería 1er piso', status: 'pending' }
+            ]
+        },
+        {
+            id: 'norte',
+            name: 'Residencias Norte',
+            location: 'Vicente López',
+            etapa: 'Planificación',
+            ownerUnit: 'Unidad 5A',
+            pendingActions: 0,
+            fieldTasks: 0,
+            progress: 10,
+            milestones: [
+                { text: 'Aprobación municipal', status: 'in_progress' },
+                { text: 'Inicio de obra', status: 'pending' }
             ]
         }
     ],
@@ -195,6 +243,45 @@ const state = {
             createdAt: isoNow()
         },
         {
+            id: 'doc-plano-4a-cli',
+            projectId: 'patria',
+            name: 'Plano Unidad 4A — Modificaciones cliente',
+            typeId: 'plano',
+            folder: 'Planos',
+            observation: 'Pedido del cliente: ampliar cocina.',
+            version: 3,
+            readOnly: false,
+            final: false,
+            uploadedBy: 'owner',
+            createdAt: isoNow()
+        },
+        {
+            id: 'doc-informe-arq',
+            projectId: 'patria',
+            name: 'Informe de avance de obra',
+            typeId: 'memoria',
+            folder: 'Documentos técnicos',
+            observation: '',
+            version: 1,
+            readOnly: true,
+            final: false,
+            uploadedBy: 'architect',
+            createdAt: isoNow()
+        },
+        {
+            id: 'doc-fideicomiso',
+            projectId: 'patria',
+            name: 'Contrato de fideicomiso',
+            typeId: 'contrato',
+            folder: 'Legales',
+            observation: '',
+            version: 2,
+            readOnly: true,
+            final: true,
+            uploadedBy: 'escribania',
+            createdAt: isoNow()
+        },
+        {
             id: 'doc-loft-plano-v1',
             projectId: 'loft',
             name: 'Plano Loft Palermo',
@@ -256,6 +343,7 @@ const roleOptions = Object.values(ROLES);
 
 const screenLogin = document.getElementById('screen-login');
 const screenProfiles = document.getElementById('screen-profiles');
+const screenProjectPicker = document.getElementById('screen-project-picker');
 const screenApp = document.getElementById('screen-app');
 const rolePill = document.getElementById('role-pill');
 const tabTitle = document.getElementById('tab-title');
@@ -405,13 +493,91 @@ function activeThread() {
 function roleLabel(roleId) {
     if (roleId === 'developer') return 'Desarrolladora';
     if (roleId === 'architect') return 'Equipo técnico';
+    if (roleId === 'escribania') return 'Escribanía';
     if (roleId === 'owner') return 'Propietario';
     return 'Sistema';
 }
 
 function showScreen(target) {
-    [screenLogin, screenProfiles, screenApp].forEach(screen => screen.classList.remove('active'));
+    [screenLogin, screenProfiles, screenProjectPicker, screenApp].forEach(screen => screen.classList.remove('active'));
     target.classList.add('active');
+}
+
+function renderProjectPicker() {
+    const list = document.getElementById('project-picker-list');
+    if (!list) return;
+    const rows = state.projects.map((p, i) => `
+        <button type="button" class="dev-obra-row" data-project-id="${p.id}">
+            <span class="dev-obra-row__thumb dev-obra-row__thumb--${i % 3}"></span>
+            <span class="dev-obra-row__info">
+                <strong>${p.name}</strong>
+                <small>${p.location}</small>
+            </span>
+            <span class="dev-obra-row__etapa">${p.etapa}</span>
+            <span class="dev-obra-row__avance">
+                <span class="dev-obra-row__pct">${p.progress}%</span>
+                <span class="progress-track"><span class="progress-fill" style="width:${p.progress}%"></span></span>
+            </span>
+            <span class="dev-obra-row__pendientes ${p.pendingActions === 0 ? 'is-zero' : ''}">${p.pendingActions}</span>
+            <i class="fas fa-chevron-right dev-obra-row__chev"></i>
+        </button>
+    `).join('');
+    list.innerHTML = `
+        <div class="dev-obras-table">
+            <div class="dev-obras-table__head">
+                <span>Obra</span>
+                <span>Etapa</span>
+                <span>Avance</span>
+                <span class="dev-obras-table__pend">Pend.</span>
+                <span></span>
+            </div>
+            ${rows}
+        </div>
+    `;
+    list.querySelectorAll('[data-project-id]').forEach(btn => {
+        btn.addEventListener('click', () => selectProject(btn.dataset.projectId));
+    });
+}
+
+function selectProject(projectId) {
+    state.currentProject = projectId;
+    state.activeTab = 'home';
+    state.libraryFolder = null;
+    state.projectSwitcherOpen = false;
+    renderApp();
+    showScreen(screenApp);
+}
+
+function renderProjectSwitcher() {
+    const nameEl = document.getElementById('project-switcher-name');
+    const menu = document.getElementById('project-switcher-menu');
+    const btn = document.getElementById('project-switcher-btn');
+    if (!nameEl || !menu || !btn) return;
+    const current = activeProject();
+    nameEl.textContent = current ? current.name : 'Elegí una obra';
+    btn.setAttribute('aria-expanded', state.projectSwitcherOpen ? 'true' : 'false');
+    menu.hidden = !state.projectSwitcherOpen;
+    if (state.projectSwitcherOpen) {
+        menu.innerHTML = state.projects.map(p => `
+            <button type="button" class="project-switcher__option ${p.id === state.currentProject ? 'is-active' : ''}" data-switch-project="${p.id}">
+                <span>${p.name}</span>
+                ${p.id === state.currentProject ? '<i class="fas fa-check"></i>' : ''}
+            </button>
+        `).join('');
+        menu.querySelectorAll('[data-switch-project]').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.currentProject = opt.dataset.switchProject;
+                state.projectSwitcherOpen = false;
+                renderApp();
+            });
+        });
+    }
+}
+
+function toggleProjectSwitcher() {
+    state.projectSwitcherOpen = !state.projectSwitcherOpen;
+    renderProjectSwitcher();
 }
 
 function buildRoleSwitcher() {
@@ -426,8 +592,10 @@ function selectRole(roleId) {
     state.activeTab = 'home';
     state.libraryFolder = null;
     state.libraryFilterOpen = false;
-    renderApp();
-    showScreen(screenApp);
+    state.currentProject = null;
+    state.projectSwitcherOpen = false;
+    renderProjectPicker();
+    showScreen(screenProjectPicker);
 }
 
 function switchTab(tabId) {
@@ -871,34 +1039,149 @@ function renderHome() {
 
     if (role === 'developer') {
         home.innerHTML = `
-            <article class="section-card">
-                <h3 class="section-title">Mis obras</h3>
-                <p class="section-sub">Tocá una obra para abrirla.</p>
-                <div>${projectList}</div>
-            </article>
-            <article class="section-card">
-                <h3 class="section-title">Avance de ${project.name}</h3>
-                ${milestones}
-            </article>
+            <div class="dev-welcome">
+                <p class="dev-welcome__role">CONSTRUCTORA</p>
+                <h2 class="dev-welcome__greet">Hola, Equipo</h2>
+                <p class="dev-welcome__sub">Gestioná todas tus obras desde un solo lugar.</p>
+            </div>
+
+            <header class="owner-section-head">
+                <h4>Tareas pendientes</h4>
+                <a class="owner-section-link tech-link">Ver todas <i class="fas fa-chevron-right"></i></a>
+            </header>
+            <div class="dev-stats-grid">
+                <div class="dev-stat">
+                    <span class="dev-stat__icon dev-stat__icon--remito"><i class="fas fa-file-arrow-up"></i></span>
+                    <span class="dev-stat__num">5</span>
+                    <small>Remitos por cargar</small>
+                </div>
+                <div class="dev-stat">
+                    <span class="dev-stat__icon dev-stat__icon--doc"><i class="far fa-file-lines"></i></span>
+                    <span class="dev-stat__num">7</span>
+                    <small>Documentos por revisar</small>
+                </div>
+                <div class="dev-stat">
+                    <span class="dev-stat__icon dev-stat__icon--firma"><i class="fas fa-pen-to-square"></i></span>
+                    <span class="dev-stat__num">4</span>
+                    <small>Firmas pendientes</small>
+                </div>
+                <div class="dev-stat">
+                    <span class="dev-stat__icon dev-stat__icon--com"><i class="far fa-comment"></i></span>
+                    <span class="dev-stat__num">2</span>
+                    <small>Comunicados sin leer</small>
+                </div>
+            </div>
+
+            <header class="owner-section-head">
+                <h4>Actividad reciente</h4>
+                <a class="owner-section-link tech-link">Ver toda la actividad <i class="fas fa-chevron-right"></i></a>
+            </header>
+            <div class="dev-activity">
+                <div class="dev-activity__row">
+                    <span class="dev-activity__icon dev-activity__icon--remito"><i class="fas fa-file-arrow-up"></i></span>
+                    <span class="dev-activity__text">Se cargó un nuevo remito en <strong>Edificio Patria</strong></span>
+                    <small>Hace 1 hora</small>
+                </div>
+                <div class="dev-activity__row">
+                    <span class="dev-activity__icon dev-activity__icon--doc"><i class="far fa-file-lines"></i></span>
+                    <span class="dev-activity__text">Documento actualizado en <strong>Loft Palermo</strong></span>
+                    <small>Hace 3 horas</small>
+                </div>
+                <div class="dev-activity__row">
+                    <span class="dev-activity__icon dev-activity__icon--check"><i class="fas fa-circle-check"></i></span>
+                    <span class="dev-activity__text">Tarea completada en <strong>Torre Olivares</strong></span>
+                    <small>Ayer</small>
+                </div>
+            </div>
         `;
+
+        home.querySelectorAll('[data-switch-project]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.currentProject = btn.dataset.switchProject;
+                renderApp();
+            });
+        });
     }
 
     if (role === 'architect') {
+        const projectThumb = (p, idx) => `
+            <button type="button" class="tech-project-card" data-project="${p.id}">
+                <span class="tech-project-card__thumb tech-project-card__thumb--${idx}"></span>
+                <span class="tech-project-card__body">
+                    <span class="tech-project-card__head">
+                        <h5>${p.name}</h5>
+                        <span class="pill-soft">${p.pendingActions} pendiente${p.pendingActions === 1 ? '' : 's'}</span>
+                    </span>
+                    <span class="tech-project-card__bar">
+                        <span class="progress-track"><span class="progress-fill" style="width:${p.progress}%"></span></span>
+                        <small>${p.progress}% completado</small>
+                    </span>
+                </span>
+                <i class="fas fa-chevron-right tech-project-card__chev"></i>
+            </button>
+        `;
+
+        const projectsMarkup = state.projects.map((p, i) => projectThumb(p, i)).join('');
+
         home.innerHTML = `
-            <article class="section-card">
-                <h3 class="section-title">Mis obras</h3>
-                <p class="section-sub">Tocá una obra para ver tus tareas.</p>
-                <div>${projectList}</div>
-            </article>
-            <article class="section-card">
-                <h3 class="section-title">Mis tareas en ${project.name}</h3>
-                <div class="list-row">
-                    <div>
-                        <div class="list-main">Remitos por cargar</div>
-                        <div class="list-sub">Cargalos desde la pestaña Docs.</div>
-                    </div>
-                    <span class="badge badge-action">${project.fieldTasks}</span>
+            <header class="owner-section-head">
+                <h4>Tareas pendientes</h4>
+                <a class="owner-section-link tech-link">Ver todas <i class="fas fa-chevron-right"></i></a>
+            </header>
+            <div class="tech-task-card">
+                <span class="tech-task-card__icon"><i class="fas fa-file-arrow-up"></i></span>
+                <div class="tech-task-card__body">
+                    <h5>Remitos por cargar</h5>
+                    <small>Cargalos desde la pestaña Docs.</small>
                 </div>
+                <span class="tech-task-card__count">${project.fieldTasks}</span>
+            </div>
+
+            <header class="owner-section-head">
+                <h4>Accesos rápidos</h4>
+            </header>
+            <div class="quick-access-grid">
+                <button type="button" class="quick-access" data-quick="docs">
+                    <span class="quick-access__icon"><i class="far fa-file-lines"></i></span>
+                    <span class="quick-access__body">
+                        <strong>Documentos</strong>
+                        <small>Buscá y consultá toda la documentación de obra.</small>
+                    </span>
+                    <i class="fas fa-chevron-right quick-access__chev"></i>
+                </button>
+                <button type="button" class="quick-access" data-quick="tasks">
+                    <span class="quick-access__icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span class="quick-access__body">
+                        <strong>Tareas</strong>
+                        <small>Gestioná y actualizá las tareas asignadas.</small>
+                    </span>
+                    <i class="fas fa-chevron-right quick-access__chev"></i>
+                </button>
+                <button type="button" class="quick-access" data-quick="upload">
+                    <span class="quick-access__icon"><i class="fas fa-cloud-arrow-up"></i></span>
+                    <span class="quick-access__body">
+                        <strong>Subir documentos</strong>
+                        <small>Cargá planos, permisos, contratos y más.</small>
+                    </span>
+                    <i class="fas fa-chevron-right quick-access__chev"></i>
+                </button>
+                <button type="button" class="quick-access" data-quick="comms">
+                    <span class="quick-access__icon"><i class="fas fa-bullhorn"></i></span>
+                    <span class="quick-access__body">
+                        <strong>Comunicados</strong>
+                        <small>Leé y publicá comunicaciones de la obra.</small>
+                    </span>
+                    <i class="fas fa-chevron-right quick-access__chev"></i>
+                </button>
+            </div>
+
+            <article class="passport-card">
+                <span class="passport-card__icon"><i class="fas fa-passport"></i></span>
+                <div class="passport-card__body">
+                    <h5>Pasaporte Digital del Edificio</h5>
+                    <p>Accedé al pasaporte digital de cada obra para consultar toda su información técnica y legal.</p>
+                </div>
+                <button type="button" class="passport-card__btn">Ver pasaporte <i class="fas fa-chevron-right"></i></button>
             </article>
         `;
     }
@@ -1061,148 +1344,146 @@ function renderDocs() {
     `;
 }
 
+const UPLOADER_INFO = {
+    developer: { label: 'Desarrolladora', dot: 'green' },
+    architect: { label: 'Arquitecto', dot: 'orange' },
+    owner: { label: 'Cliente', dot: 'blue' },
+    escribania: { label: 'Escribanía', dot: 'gray' }
+};
+
+function uploaderInfo(roleId) {
+    return UPLOADER_INFO[roleId] || { label: roleLabel(roleId), dot: 'gray' };
+}
+
+function relativeTime(iso) {
+    const then = new Date(iso).getTime();
+    const now = Date.now();
+    const diff = Math.max(0, now - then);
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 1) return 'recién';
+    if (hours < 24) return `hace ${hours} hora${hours === 1 ? '' : 's'}`;
+    const days = Math.floor(hours / 24);
+    return `hace ${days} día${days === 1 ? '' : 's'}`;
+}
+
+function shortDate(iso) {
+    const d = new Date(iso);
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+function commentsForDoc(docId) {
+    let count = 0;
+    state.threads.forEach(t => {
+        if (t.documentId === docId) count += t.comments.length;
+    });
+    return count;
+}
+
 function renderLibrary() {
     const container = document.getElementById('tab-library');
-    const role = state.currentRole;
     const project = activeProject();
 
-    if (role === 'owner' || !project) {
+    if (!project) {
         container.innerHTML = '';
         return;
     }
 
-    const projectDocs = state.documents
-        .filter(doc => doc.projectId === state.currentProject);
+    const projectDocs = state.documents.filter(doc => doc.projectId === state.currentProject);
 
-    const grouping = state.libraryGrouping;
+    const filter = state.libraryFilter || 'all';
+    const query = (state.librarySearch || '').toLowerCase().trim();
 
-    const libraryDocRow = (doc) => {
-        const typeLabel = docTypeLabel(doc);
-        const isPlan = doc.folder === 'Planos';
+    const filterMatches = (doc) => {
+        if (filter === 'all') return true;
+        if (filter === 'mine') return doc.uploadedBy === state.currentRole;
+        return doc.uploadedBy === filter;
+    };
+
+    const visibleDocs = projectDocs.filter(doc =>
+        filterMatches(doc) &&
+        (!query || doc.name.toLowerCase().includes(query) || (doc.observation || '').toLowerCase().includes(query))
+    );
+
+    const iconForDoc = (doc) => {
+        if (doc.folder === 'Planos') return { icon: 'fa-drafting-compass', tone: 'blue' };
+        if (doc.folder === 'Legales') return { icon: 'fa-file-shield', tone: 'gray' };
+        if (doc.folder === 'Documentos técnicos') return { icon: 'fa-file-lines', tone: 'orange' };
+        if (doc.folder === 'Comprobantes') return { icon: 'fa-receipt', tone: 'green' };
+        return { icon: 'fa-file-lines', tone: 'green' };
+    };
+
+    const docCard = (doc) => {
+        const ui = uploaderInfo(doc.uploadedBy);
         const isFresh = doc.id === docsForm.freshDocId;
+        const editable = !doc.readOnly;
+        const iconInfo = iconForDoc(doc);
+        const cmtCount = commentsForDoc(doc.id);
         return `
-            <div class="doc-row ${isFresh ? 'fresh' : ''}">
-                <div class="doc-row__icon"><i class="fas ${isPlan ? 'fa-drafting-compass' : 'fa-file-lines'}"></i></div>
-                <div class="doc-row__body">
-                    <div class="doc-row__title">
+            <article class="file-card ${isFresh ? 'fresh' : ''}">
+                <span class="file-card__icon file-card__icon--${iconInfo.tone}"><i class="fas ${iconInfo.icon}"></i></span>
+                <div class="file-card__body">
+                    <div class="file-card__top">
                         <h4>${escapeHtml(doc.name)}</h4>
-                        <span class="badge badge-neutral">${escapeHtml(typeLabel)}</span>
+                        <span class="file-card__badge file-card__badge--${editable ? 'editable' : 'readonly'}">
+                            <i class="fas ${editable ? 'fa-pen' : 'fa-eye'}"></i>
+                            ${editable ? 'Editable' : 'Solo lectura'}
+                        </span>
                     </div>
-                    ${doc.observation ? `<p class="doc-row__obs">${escapeHtml(doc.observation)}</p>` : ''}
-                    <div class="doc-row__meta">
-                        <small>${prettyDate(doc.createdAt)} · ${roleLabel(doc.uploadedBy)}</small>
-                        <div class="doc-row__actions">
-                            <button data-doc-action="comentar" data-doc-id="${doc.id}"><i class="fas fa-message"></i> Comentar</button>
-                            <button data-doc-action="descargar" data-doc-id="${doc.id}"><i class="fas fa-download"></i> Descargar</button>
-                        </div>
-                    </div>
+                    <p class="file-card__uploader">
+                        <span class="dot dot--${ui.dot}"></span> Subido por ${ui.label}
+                    </p>
+                    <p class="file-card__meta">${shortDate(doc.createdAt)} · v${doc.version || 1} · ${relativeTime(doc.createdAt)}</p>
                 </div>
-            </div>
-        `;
-    };
-
-    const buildFolders = () => {
-        if (grouping === 'type') {
-            const folderOrder = [];
-            DOC_TYPES.forEach(t => {
-                if (!folderOrder.includes(t.folder)) folderOrder.push(t.folder);
-            });
-            projectDocs.forEach(doc => {
-                if (!folderOrder.includes(doc.folder)) folderOrder.push(doc.folder);
-            });
-            return folderOrder
-                .map(folder => {
-                    const docs = projectDocs.filter(d => d.folder === folder);
-                    if (!docs.length) return null;
-                    return { key: `type:${folder}`, label: folder, icon: 'fa-folder', docs, sortAsc: false };
-                })
-                .filter(Boolean);
-        }
-        const groups = new Map();
-        projectDocs.forEach(doc => {
-            const key = new Date(doc.createdAt).toISOString().slice(0, 10);
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(doc);
-        });
-        return [...groups.keys()]
-            .sort((a, b) => b.localeCompare(a))
-            .map(dateKey => ({
-                key: `date:${dateKey}`,
-                label: formatDateFolderLabel(dateKey),
-                icon: 'fa-calendar-day',
-                docs: groups.get(dateKey),
-                sortAsc: true
-            }));
-    };
-
-    const folders = buildFolders();
-    const activeFolder = state.libraryFolder ? folders.find(f => f.key === state.libraryFolder) : null;
-
-    if (activeFolder) {
-        const sorted = [...activeFolder.docs].sort((a, b) => {
-            const diff = new Date(a.createdAt) - new Date(b.createdAt);
-            return activeFolder.sortAsc ? diff : -diff;
-        });
-
-        container.innerHTML = `
-            <article class="section-card folder-detail">
-                <button type="button" class="folder-detail__back" id="library-back">
-                    <i class="fas fa-chevron-left"></i> Volver a las carpetas
-                </button>
-                <div class="folder-detail__head">
-                    <div class="folder-detail__icon"><i class="fas ${activeFolder.icon}"></i></div>
-                    <div class="folder-detail__head-text">
-                        <h2>${escapeHtml(activeFolder.label)}</h2>
-                        <p>${sorted.length} ${sorted.length === 1 ? 'documento' : 'documentos'}</p>
-                    </div>
+                <div class="file-card__actions">
+                    <button class="file-card__action" data-doc-action="comentar" data-doc-id="${doc.id}" aria-label="Comentarios">
+                        <i class="far fa-comment"></i>
+                        <span>${cmtCount}</span>
+                    </button>
+                    <button class="file-card__action" data-doc-action="descargar" data-doc-id="${doc.id}" aria-label="Descargar">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="file-card__action" data-doc-action="more" data-doc-id="${doc.id}" aria-label="Más opciones">
+                        <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
                 </div>
             </article>
-            <div class="doc-list">${sorted.map(libraryDocRow).join('')}</div>
         `;
-        return;
-    }
+    };
 
-    const groupingLabel = grouping === 'type' ? 'Por tipo de archivo' : 'Por fecha de subida';
+    const chip = (id, label, dot) => `
+        <button type="button" class="files-chip ${filter === id ? 'is-active' : ''}" data-filter="${id}">
+            ${dot ? `<span class="dot dot--${dot}"></span>` : ''}
+            ${label}
+        </button>
+    `;
 
-    const foldersMarkup = folders.length
-        ? `<div class="folder-grid">${folders.map(folder => `
-                <button type="button" class="folder-row" data-open-folder="${escapeHtml(folder.key)}">
-                    <span class="folder-row__icon"><i class="fas ${folder.icon}"></i></span>
-                    <span class="folder-row__body">
-                        <span class="folder-row__name">${escapeHtml(folder.label)}</span>
-                        <span class="folder-row__count">${folder.docs.length} ${folder.docs.length === 1 ? 'documento' : 'documentos'}</span>
-                    </span>
-                    <i class="fas fa-chevron-right folder-row__chevron"></i>
-                </button>
-            `).join('')}</div>`
-        : '<div class="section-card"><p>Todavía no hay documentos en el proyecto.</p></div>';
+    const listMarkup = visibleDocs.length
+        ? `<div class="file-list">${visibleDocs.map(docCard).join('')}</div>`
+        : '<div class="section-card"><p class="section-sub">No hay documentos que coincidan con el filtro.</p></div>';
 
     container.innerHTML = `
-        <article class="section-card">
-            <h3 class="section-title">Documentos del Proyecto</h3>
-            <div class="filter-wrap">
-                <button type="button" class="filter-btn" id="library-filter-btn" aria-haspopup="menu" aria-expanded="${state.libraryFilterOpen}">
-                    <i class="fas fa-filter"></i>
-                    <span>Filtrar · ${groupingLabel}</span>
-                    <i class="fas fa-chevron-down filter-btn__caret"></i>
-                </button>
-                ${state.libraryFilterOpen ? `
-                    <div class="filter-menu" id="library-filter-menu" role="menu">
-                        <button type="button" data-group="type" class="${grouping === 'type' ? 'active' : ''}" role="menuitem">
-                            <i class="fas fa-folder"></i>
-                            <span>Por tipo de archivo</span>
-                            ${grouping === 'type' ? '<i class="fas fa-check filter-menu__check"></i>' : ''}
-                        </button>
-                        <button type="button" data-group="date" class="${grouping === 'date' ? 'active' : ''}" role="menuitem">
-                            <i class="fas fa-calendar"></i>
-                            <span>Por fecha de subida</span>
-                            ${grouping === 'date' ? '<i class="fas fa-check filter-menu__check"></i>' : ''}
-                        </button>
-                    </div>
-                ` : ''}
-            </div>
-        </article>
-        ${foldersMarkup}
+        <header class="files-head">
+            <h2 class="files-head__title">Mis archivos</h2>
+            <span class="files-head__role">${ROLES[state.currentRole]?.label || ''} <i class="fas fa-chevron-down"></i></span>
+        </header>
+
+        <div class="files-search-row">
+            <label class="files-search">
+                <i class="fas fa-magnifying-glass"></i>
+                <input type="search" id="library-search" placeholder="Buscar documentos…" value="${escapeHtml(query)}">
+            </label>
+            <button type="button" class="files-filter-btn"><i class="fas fa-sliders"></i> Filtros</button>
+        </div>
+
+        <div class="files-chips">
+            ${chip('all', 'Todos')}
+            ${chip('mine', 'Subidos por mí')}
+            ${chip('owner', 'Cliente', 'blue')}
+            ${chip('architect', 'Arquitecto', 'orange')}
+            ${chip('escribania', 'Escribanía', 'gray')}
+        </div>
+
+        ${listMarkup}
     `;
 }
 
@@ -1493,8 +1774,8 @@ function renderNotifications() {
 
     container.innerHTML = `
         <article class="section-card">
-            <h3 class="section-title">Tus alertas</h3>
-            <p class="section-sub">Tocá una alerta para abrir el detalle.</p>
+            <h3 class="section-title">Comunicados</h3>
+            <p class="section-sub">Tocá un comunicado para abrir el detalle.</p>
             <div class="notif-list">
                 ${visible.map(item => {
                     const isUnread = !item.readBy.includes(role);
@@ -1520,41 +1801,136 @@ function renderNotifications() {
 function renderHistory() {
     const container = document.getElementById('tab-history');
 
-    if (state.currentRole === 'owner') {
-        const project = activeProject();
+    if (state.currentRole) {
+        const roleLabelShort = state.currentRole === 'owner' ? 'Propietaria' : (state.currentRole === 'architect' ? 'Equipo técnico' : 'Desarrolladora');
+        const subtitle = state.currentRole === 'owner'
+            ? 'Gestioná tu identidad y tus propiedades'
+            : 'Gestioná tu identidad y tus obras';
+        const propertiesLabel = state.currentRole === 'owner' ? 'Mis propiedades' : 'Mis obras';
+        const propertiesCtaLabel = state.currentRole === 'owner' ? 'Agregar propiedad' : 'Agregar obra';
+        const exportTitle = state.currentRole === 'owner' ? 'Exportar Pasaporte Digital' : 'Exportar pasaporte de obra';
+        const exportText = state.currentRole === 'owner'
+            ? 'Descargá el pasaporte digital de tu propiedad con toda su documentación oficial.'
+            : 'Descargá el pasaporte digital de la obra con toda su documentación oficial.';
         container.innerHTML = `
-            <article class="profile-card-owner">
-                <div class="profile-card-owner__avatar"></div>
-                <h3 class="profile-card-owner__name">María Riobó</h3>
-                <p class="profile-card-owner__sub">${project ? project.name : ''} · ${project ? project.ownerUnit : ''}</p>
-                <span class="status-pill"><span class="status-pill__dot"></span>Propietaria</span>
+            <h2 class="profile-title">Mi perfil</h2>
+            <p class="profile-subtitle">${subtitle}</p>
+
+            <article class="profile-identity">
+                <div class="profile-identity__avatar">
+                    <button class="profile-identity__edit" type="button" aria-label="Editar foto"><i class="fas fa-pen"></i></button>
+                </div>
+                <div class="profile-identity__body">
+                    <h3>Liliana González</h3>
+                    <p class="profile-identity__role">${roleLabelShort}</p>
+                    <p class="profile-identity__location"><i class="fas fa-location-dot"></i> Torre Olivares · Unidad 7B</p>
+                    <span class="profile-verified"><i class="fas fa-circle-check"></i> Identidad verificada</span>
+                </div>
             </article>
+
+            <header class="owner-section-head">
+                <h4>${propertiesLabel}</h4>
+                <a class="owner-section-link">Ver todas <i class="fas fa-chevron-right"></i></a>
+            </header>
+            <div class="property-stack">
+                <button type="button" class="property-row">
+                    <span class="property-row__thumb property-row__thumb--olivares"></span>
+                    <span class="property-row__body">
+                        <h5>Torre Olivares</h5>
+                        <p>Unidad 7B · Propietaria <span class="pill-soft">Principal</span></p>
+                    </span>
+                    <i class="fas fa-chevron-right property-row__chev"></i>
+                </button>
+                <button type="button" class="property-row">
+                    <span class="property-row__thumb property-row__thumb--central"></span>
+                    <span class="property-row__body">
+                        <h5>Torre Central</h5>
+                        <p>Unidad 3A · Inversora</p>
+                    </span>
+                    <i class="fas fa-chevron-right property-row__chev"></i>
+                </button>
+                <button type="button" class="add-property-btn">
+                    <i class="fas fa-plus"></i> ${propertiesCtaLabel}
+                </button>
+            </div>
+
+            <header class="owner-section-head">
+                <h4>Actividad reciente</h4>
+                <a class="owner-section-link">Ver todo <i class="fas fa-chevron-right"></i></a>
+            </header>
+            <div class="activity-list">
+                <div class="activity-row">
+                    <span class="activity-row__icon activity-row__icon--doc"><i class="fas fa-file-circle-check"></i></span>
+                    <div class="activity-row__body">
+                        <h5>Documento firmado</h5>
+                        <small>Manual de uso · Ascensor</small>
+                    </div>
+                    <small class="activity-row__time">Hace 2 días</small>
+                </div>
+                <div class="activity-row">
+                    <span class="activity-row__icon activity-row__icon--check"><i class="fas fa-shield-halved"></i></span>
+                    <div class="activity-row__body">
+                        <h5>Garantía consultada</h5>
+                        <small>Bomba presurizadora</small>
+                    </div>
+                    <small class="activity-row__time">Ayer</small>
+                </div>
+                <div class="activity-row">
+                    <span class="activity-row__icon activity-row__icon--bell"><i class="fas fa-bullhorn"></i></span>
+                    <div class="activity-row__body">
+                        <h5>Comunicado leído</h5>
+                        <small>Citra · Avance semanal</small>
+                    </div>
+                    <small class="activity-row__time">3 días</small>
+                </div>
+            </div>
+
+            <header class="owner-section-head">
+                <h4>Configuración</h4>
+            </header>
             <div class="profile-list">
                 <button class="profile-list__row" type="button">
                     <span class="profile-list__icon"><i class="far fa-user"></i></span>
-                    <span class="profile-list__label">Datos personales</span>
-                    <i class="fas fa-chevron-right profile-list__chev"></i>
-                </button>
-                <button class="profile-list__row" type="button">
-                    <span class="profile-list__icon"><i class="far fa-bell"></i></span>
-                    <span class="profile-list__label">Preferencias de notificaciones</span>
+                    <span class="profile-list__label">
+                        Información personal
+                        <small>Datos, contacto y verificación</small>
+                    </span>
                     <i class="fas fa-chevron-right profile-list__chev"></i>
                 </button>
                 <button class="profile-list__row" type="button">
                     <span class="profile-list__icon"><i class="fas fa-shield-halved"></i></span>
-                    <span class="profile-list__label">Seguridad y privacidad</span>
+                    <span class="profile-list__label">
+                        Seguridad
+                        <small>Contraseña y autenticación</small>
+                    </span>
                     <i class="fas fa-chevron-right profile-list__chev"></i>
                 </button>
                 <button class="profile-list__row" type="button">
-                    <span class="profile-list__icon"><i class="far fa-circle-question"></i></span>
-                    <span class="profile-list__label">Ayuda y soporte</span>
+                    <span class="profile-list__icon"><i class="far fa-bell"></i></span>
+                    <span class="profile-list__label">
+                        Notificaciones
+                        <small>Preferencias y alertas</small>
+                    </span>
                     <i class="fas fa-chevron-right profile-list__chev"></i>
                 </button>
-                <button class="profile-list__row profile-list__row--danger" type="button">
-                    <span class="profile-list__icon"><i class="fas fa-right-from-bracket"></i></span>
-                    <span class="profile-list__label">Cerrar sesión</span>
+                <button class="profile-list__row" type="button">
+                    <span class="profile-list__icon"><i class="fas fa-user-group"></i></span>
+                    <span class="profile-list__label">
+                        Permisos y accesos
+                        <small>Personas con acceso a tus propiedades</small>
+                    </span>
+                    <i class="fas fa-chevron-right profile-list__chev"></i>
                 </button>
             </div>
+
+            <article class="export-card">
+                <span class="export-card__icon"><i class="fas fa-passport"></i></span>
+                <div class="export-card__body">
+                    <h5>${exportTitle}</h5>
+                    <p>${exportText}</p>
+                </div>
+                <button class="export-card__btn" type="button"><i class="fas fa-download"></i> Exportar</button>
+            </article>
         `;
         return;
     }
@@ -1594,36 +1970,31 @@ function updateHeader() {
 
     const header = document.querySelector('#screen-app .screen-header');
     const brandHeader = document.getElementById('brand-header');
-    const useBrand = state.currentRole === 'owner' && state.activeTab === 'home';
-    if (header) header.classList.toggle('screen-header--brand', useBrand);
-    if (brandHeader) {
-        brandHeader.hidden = !useBrand;
-        if (useBrand) {
-            const notifBadgeCount = state.notifications
-                .filter(n => n.targets.includes('owner'))
-                .filter(n => (n.projectId === state.currentProject || n.projectId === 'global'))
-                .filter(n => !n.readBy.includes('owner')).length;
-            const badge = document.getElementById('brand-header-badge');
-            if (badge) {
-                badge.textContent = notifBadgeCount;
-                badge.hidden = notifBadgeCount === 0;
-            }
-        }
+    const useBrand = Boolean(state.currentRole);
+    if (header) {
+        header.classList.toggle('screen-header--brand', useBrand);
+        header.classList.remove('screen-header--hidden');
     }
+    if (brandHeader) brandHeader.hidden = !useBrand;
 
-    const showLibrary = state.currentRole !== 'owner';
     const tabBar = document.querySelector('.tab-bar');
-    if (tabBar) tabBar.dataset.tabs = showLibrary ? '5' : '4';
+    if (tabBar) tabBar.dataset.tabs = '4';
 
+    const docsTab = document.querySelector('.tab-item[data-tab="docs"]');
+    if (docsTab) docsTab.hidden = true;
     const libraryTab = document.querySelector('.tab-item[data-tab="library"]');
-    if (libraryTab) libraryTab.hidden = !showLibrary;
-
-    const docsLabel = document.querySelector('[data-tab-label="docs"]');
-    if (docsLabel) docsLabel.textContent = state.currentRole === 'owner' ? 'Documentos' : 'Mis archivos';
-
-    if (!showLibrary && state.activeTab === 'library') {
-        state.activeTab = 'home';
+    if (libraryTab) {
+        libraryTab.hidden = false;
+        const libSpan = libraryTab.querySelector('span');
+        if (libSpan) libSpan.textContent = 'Documentos';
     }
+
+    if (state.activeTab === 'docs') state.activeTab = 'library';
+
+    const uploadBar = document.getElementById('library-upload-bar');
+    if (uploadBar) uploadBar.hidden = state.activeTab !== 'library';
+    const chatBubbleEl = document.getElementById('chat-bubble');
+    if (chatBubbleEl) chatBubbleEl.style.bottom = state.activeTab === 'library' ? '154px' : '';
 
     const notifCount = state.notifications
         .filter(notification => notification.targets.includes(state.currentRole))
@@ -1635,21 +2006,12 @@ function updateHeader() {
     const historyTabLabel = document.querySelector('[data-tab-label="history"]');
     const historyTabIcon = document.querySelector('[data-tab-icon="history"]');
 
-    if (state.currentRole === 'owner') {
-        notifTabLabel.textContent = notifCount > 0 ? `Comunicados (${notifCount})` : 'Comunicados';
-        notifTabIcon.className = 'far fa-comment-dots';
-        notifTabIcon.dataset.tabIcon = 'notifications';
-        historyTabLabel.textContent = 'Mi perfil';
-        historyTabIcon.className = 'far fa-user';
-        historyTabIcon.dataset.tabIcon = 'history';
-    } else {
-        notifTabLabel.textContent = notifCount > 0 ? `Alertas (${notifCount})` : 'Alertas';
-        notifTabIcon.className = 'fas fa-bell';
-        notifTabIcon.dataset.tabIcon = 'notifications';
-        historyTabLabel.textContent = 'Historial';
-        historyTabIcon.className = 'fas fa-clock-rotate-left';
-        historyTabIcon.dataset.tabIcon = 'history';
-    }
+    notifTabLabel.textContent = notifCount > 0 ? `Comunicados (${notifCount})` : 'Comunicados';
+    notifTabIcon.className = 'far fa-comment-dots';
+    notifTabIcon.dataset.tabIcon = 'notifications';
+    historyTabLabel.textContent = 'Mi perfil';
+    historyTabIcon.className = 'far fa-user';
+    historyTabIcon.dataset.tabIcon = 'history';
 
     const backBtn = document.getElementById('back-profiles');
     if (backBtn) {
@@ -1884,6 +2246,32 @@ function attachEventsInActiveTab() {
     const openUploadBtn = document.getElementById('docs-open-upload');
     if (openUploadBtn) openUploadBtn.addEventListener('click', openUploadScreen);
 
+    document.querySelectorAll('[data-filter]').forEach(chip => {
+        chip.addEventListener('click', () => {
+            state.libraryFilter = chip.dataset.filter;
+            renderLibrary();
+            attachEventsInActiveTab();
+        });
+    });
+
+    const searchInput = document.getElementById('library-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            state.librarySearch = searchInput.value;
+            const focused = document.activeElement === searchInput;
+            const pos = searchInput.selectionStart;
+            renderLibrary();
+            attachEventsInActiveTab();
+            if (focused) {
+                const reRendered = document.getElementById('library-search');
+                if (reRendered) {
+                    reRendered.focus();
+                    if (pos !== null) reRendered.setSelectionRange(pos, pos);
+                }
+            }
+        });
+    }
+
     document.querySelectorAll('[data-group]').forEach(button => {
         button.addEventListener('click', () => {
             const next = button.dataset.group;
@@ -1952,6 +2340,7 @@ function renderApp() {
     tabScreens.forEach(screen => screen.classList.toggle('active', screen.id === `tab-${state.activeTab}`));
 
     updateHeader();
+    renderProjectSwitcher();
     attachEventsInActiveTab();
 
     if (planViewer.open) renderPlanViewer();
@@ -1967,6 +2356,26 @@ function boot() {
     document.getElementById('btn-enter').addEventListener('click', () => showScreen(screenProfiles));
     document.getElementById('back-login').addEventListener('click', () => showScreen(screenLogin));
     document.getElementById('back-profiles').addEventListener('click', handleHeaderBack);
+    document.getElementById('back-to-profiles').addEventListener('click', () => showScreen(screenProfiles));
+
+    const libUploadBtn = document.getElementById('library-upload-btn');
+    if (libUploadBtn) libUploadBtn.addEventListener('click', openUploadScreen);
+
+    const switcherBtn = document.getElementById('project-switcher-btn');
+    if (switcherBtn) {
+        switcherBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleProjectSwitcher();
+        });
+    }
+    document.addEventListener('click', (e) => {
+        if (!state.projectSwitcherOpen) return;
+        const wrap = document.getElementById('project-switcher');
+        if (wrap && !wrap.contains(e.target)) {
+            state.projectSwitcherOpen = false;
+            renderProjectSwitcher();
+        }
+    });
 
     document.querySelectorAll('.profile-card').forEach(card => {
         card.addEventListener('click', () => {
