@@ -515,13 +515,11 @@ function renderProjectPicker() {
             <span class="obra-card__body">
                 <strong class="obra-card__name">${p.name}</strong>
                 <span class="obra-card__loc"><i class="fas fa-location-dot"></i>${p.location}</span>
-                <span class="obra-card__progress-row">
-                    <span class="progress-track"><span class="progress-fill" style="width:${p.progress}%"></span></span>
-                    <i class="fas fa-chevron-right obra-card__chev"></i>
-                </span>
+                <span class="progress-track"><span class="progress-fill" style="width:${p.progress}%"></span></span>
                 <span class="obra-card__foot">
                     <span class="obra-card__pending ${p.pendingActions === 0 ? 'is-zero' : ''}">${p.pendingActions}</span>
                     <span class="obra-card__etapa">${p.etapa}</span>
+                    <i class="fas fa-chevron-right obra-card__chev"></i>
                 </span>
             </span>
         </button>

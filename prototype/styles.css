@@ -2487,11 +2487,14 @@ body {
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: -0.01em;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    text-align: center;
 }
 
 .obra-picker__subtle {
     margin-bottom: 18px;
+    text-align: center;
+    line-height: 1.5;
 }
 
 .obra-picker__search {
@@ -2540,10 +2543,16 @@ body {
     border-left: 1px solid var(--line-gray);
 }
 
+#screen-project-picker {
+    padding-left: 18px;
+    padding-right: 18px;
+    overflow-y: auto;
+}
+
 .obra-picker__grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 12px;
 }
 
 .obra-card {
@@ -2571,7 +2580,7 @@ body {
 .obra-card__media {
     position: relative;
     display: block;
-    height: 110px;
+    height: 140px;
     background-image: url('obra_torre.jpg');
     background-size: cover;
     background-position: center;
@@ -2596,8 +2605,8 @@ body {
 .obra-card__body {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 12px;
+    gap: 8px;
+    padding: 14px 14px 16px;
 }
 
 .obra-card__name {
@@ -2619,37 +2628,33 @@ body {
     color: var(--assistant-olive);
 }
 
-.obra-card__progress-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.obra-card__body .progress-track {
     margin-top: 2px;
-}
-
-.obra-card__progress-row .progress-track {
-    flex: 1;
 }
 
 .obra-card__chev {
     color: var(--text-muted);
     font-size: 12px;
+    margin-left: auto;
 }
 
 .obra-card__foot {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 4px;
-    padding-top: 8px;
-    border-top: 1px solid var(--line-soft);
+    margin-top: 6px;
+    background: transparent;
+    border: 0;
+    padding: 0;
 }
 
 .obra-card__pending {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     border-radius: 999px;
-    background: var(--assistant-olive-soft);
-    color: var(--assistant-olive-deep);
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    color: var(--text-dark);
     font-size: 12px;
     font-weight: 700;
     display: grid;
@@ -2668,6 +2673,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .obra-card--add {
@@ -2687,14 +2694,15 @@ body {
 }
 
 .obra-card__add-icon {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     border-radius: 999px;
-    border: 1.5px solid var(--assistant-olive);
+    background: var(--assistant-olive-soft);
     color: var(--assistant-olive-deep);
     display: grid;
     place-items: center;
-    font-size: 16px;
+    font-size: 20px;
+    font-weight: 300;
 }
 
 .obra-card__add-text {
