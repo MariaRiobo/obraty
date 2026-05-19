@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=28">
+    <link rel="stylesheet" href="styles.css?v=36">
 </head>
 <body>
     <div id="app-shell">
@@ -21,7 +21,59 @@
                     <h1>El ciclo de vida de tu propiedad, en un solo lugar.</h1>
                 </div>
                 <button class="btn btn-primary" id="btn-enter">Ingresar</button>
-                <button class="btn btn-ghost">Crear cuenta</button>
+                <button class="btn btn-ghost" id="btn-signup">Crear cuenta</button>
+            </section>
+
+            <section id="screen-signup" class="screen full">
+                <button class="icon-btn signup-back" id="back-signup" aria-label="Volver">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h2 class="signup-title">Crear cuenta</h2>
+                <p class="subtle signup-subtle">Completá tus datos para empezar a usar Obraty.</p>
+                <form class="signup-form" id="signup-form" autocomplete="off">
+                    <label class="signup-field">
+                        <span>Nombre y apellido</span>
+                        <input type="text" name="name" required placeholder="Ej. María Pérez">
+                    </label>
+                    <label class="signup-field">
+                        <span>Email</span>
+                        <input type="email" name="email" required placeholder="tu@email.com">
+                    </label>
+                    <label class="signup-field">
+                        <span>Teléfono <small>(opcional)</small></span>
+                        <input type="tel" name="phone" placeholder="+54 11 1234 5678">
+                    </label>
+                    <label class="signup-field">
+                        <span>Contraseña</span>
+                        <input type="password" name="password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                    </label>
+                    <div class="signup-field signup-field--role">
+                        <span>¿Cómo vas a usar Obraty?</span>
+                        <div class="signup-role-group" role="radiogroup" aria-label="Elegí tu rol">
+                            <label class="signup-role">
+                                <input type="radio" name="role" value="developer" required>
+                                <span class="signup-role__icon"><i class="fas fa-building"></i></span>
+                                <span class="signup-role__label">Desarrolladora</span>
+                            </label>
+                            <label class="signup-role">
+                                <input type="radio" name="role" value="architect">
+                                <span class="signup-role__icon"><i class="fas fa-helmet-safety"></i></span>
+                                <span class="signup-role__label">Equipo técnico</span>
+                            </label>
+                            <label class="signup-role">
+                                <input type="radio" name="role" value="owner">
+                                <span class="signup-role__icon"><i class="fas fa-key"></i></span>
+                                <span class="signup-role__label">Propietario</span>
+                            </label>
+                        </div>
+                    </div>
+                    <label class="signup-field signup-field--check">
+                        <input type="checkbox" name="terms" required>
+                        <span>Acepto los términos y condiciones y la política de privacidad.</span>
+                    </label>
+                    <button type="submit" class="btn btn-primary">Crear cuenta</button>
+                    <p class="signup-foot">¿Ya tenés cuenta? <a href="#" id="signup-to-login">Ingresá</a></p>
+                </form>
             </section>
 
             <section id="screen-profiles" class="screen full">
@@ -128,6 +180,45 @@
                     </div>
                 </div>
 
+                <aside id="process-detail" class="plan-viewer" hidden aria-label="Proceso de obra">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="process-detail-close" aria-label="Cerrar proceso">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker">Proceso de obra</p>
+                            <h2 id="process-detail-title">Historial y avances</h2>
+                        </div>
+                    </header>
+                    <div id="process-detail-body" class="plan-viewer__body"></div>
+                </aside>
+
+                <aside id="history-detail" class="plan-viewer" hidden aria-label="Historial del edificio">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="history-detail-close" aria-label="Cerrar historial">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker">Historial</p>
+                            <h2 id="history-detail-title">Actividad del edificio</h2>
+                        </div>
+                    </header>
+                    <div id="history-detail-body" class="plan-viewer__body"></div>
+                </aside>
+
+                <aside id="tareas-detail" class="plan-viewer" hidden aria-label="Tareas pendientes">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="tareas-detail-close" aria-label="Cerrar tareas">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker">Tareas pendientes</p>
+                            <h2 id="tareas-detail-title">Remitos por cargar</h2>
+                        </div>
+                    </header>
+                    <div id="tareas-detail-body" class="plan-viewer__body"></div>
+                </aside>
+
                 <aside id="plan-viewer" class="plan-viewer" hidden aria-label="Visor de documento">
                     <header class="plan-viewer__header">
                         <button class="icon-btn" id="plan-viewer-close" aria-label="Cerrar visor">
@@ -212,6 +303,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="app.js?v=26"></script>
+    <script src="app.js?v=44"></script>
 </body>
 </html>

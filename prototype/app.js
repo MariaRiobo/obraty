@@ -85,6 +85,15 @@ const state = {
     libraryFilter: 'all',
     librarySearch: '',
     libraryView: 'list',
+    tareasFilter: 'all',
+    pendingRemitos: [
+        { id: 'rem-seed-1', projectId: 'patria', name: 'Remito hormigón H30 — losa nivel 4', vendor: 'Hormigonera Sur', date: 'Vence hoy', urgent: true, requestedBy: 'developer' },
+        { id: 'rem-seed-2', projectId: 'patria', name: 'Remito acero — refuerzos columna C7', vendor: 'Acindar', date: 'Vence mañana', urgent: true, requestedBy: 'developer' },
+        { id: 'rem-seed-3', projectId: 'patria', name: 'Remito ladrillos cerámicos — piso 5', vendor: 'Ctibor', date: 'Vence en 2 días', urgent: false, requestedBy: 'developer' },
+        { id: 'rem-seed-4', projectId: 'patria', name: 'Remito caños PVC — sanitarios piso 3', vendor: 'Tigre', date: 'Vence en 3 días', urgent: false, requestedBy: 'developer' },
+        { id: 'rem-seed-5', projectId: 'patria', name: 'Remito cables eléctricos — tableros piso 2', vendor: 'Prysmian', date: 'Vence en 5 días', urgent: false, requestedBy: 'developer' }
+    ],
+    notifiedDevRemitoIds: [],
     focusThreadId: null,
     ownerCommentDone: false,
     mentionDone: false,
@@ -177,7 +186,7 @@ const state = {
             targets: ['developer', 'architect', 'owner'],
             readBy: [],
             createdAt: isoNow(),
-            context: { tab: 'history' },
+            context: { tab: 'process' },
             projectId: 'patria'
         },
         {
@@ -294,6 +303,58 @@ const state = {
             final: false,
             uploadedBy: 'architect',
             createdAt: isoNow()
+        },
+        {
+            id: 'doc-plano-estructura',
+            projectId: 'patria',
+            name: 'Plano de estructura',
+            typeId: 'plano',
+            folder: 'Planos',
+            observation: 'Plano estructural general del edificio.',
+            version: 1,
+            readOnly: true,
+            final: true,
+            uploadedBy: 'architect',
+            createdAt: isoNow()
+        },
+        {
+            id: 'doc-poliza-seguro',
+            projectId: 'patria',
+            name: 'Póliza de seguro de obra',
+            typeId: 'contrato',
+            folder: 'Legales',
+            observation: 'Cobertura todo riesgo durante la construcción.',
+            version: 1,
+            readOnly: true,
+            final: true,
+            uploadedBy: 'developer',
+            createdAt: isoNow()
+        },
+        {
+            id: 'doc-permiso-obra',
+            projectId: 'patria',
+            name: 'Permiso de obra',
+            typeId: 'contrato',
+            folder: 'Legales',
+            observation: 'Aprobación municipal para la ejecución de la obra.',
+            version: 1,
+            readOnly: true,
+            final: true,
+            uploadedBy: 'developer',
+            createdAt: isoNow()
+        },
+        {
+            id: 'doc-contrato-constructora',
+            projectId: 'patria',
+            name: 'Contrato con constructora',
+            typeId: 'contrato',
+            folder: 'Legales',
+            observation: 'Contrato firmado con la empresa constructora.',
+            version: 1,
+            readOnly: true,
+            final: true,
+            uploadedBy: 'developer',
+            createdAt: isoNow()
         }
     ],
     threads: [
@@ -346,6 +407,7 @@ const screenLogin = document.getElementById('screen-login');
 const screenProfiles = document.getElementById('screen-profiles');
 const screenProjectPicker = document.getElementById('screen-project-picker');
 const screenApp = document.getElementById('screen-app');
+const screenSignup = document.getElementById('screen-signup');
 const rolePill = document.getElementById('role-pill');
 const tabTitle = document.getElementById('tab-title');
 const roleSwitcher = document.getElementById('role-switcher');
@@ -500,7 +562,7 @@ function roleLabel(roleId) {
 }
 
 function showScreen(target) {
-    [screenLogin, screenProfiles, screenProjectPicker, screenApp].forEach(screen => screen.classList.remove('active'));
+    [screenLogin, screenProfiles, screenProjectPicker, screenApp, screenSignup].forEach(screen => screen.classList.remove('active'));
     target.classList.add('active');
 }
 
@@ -526,7 +588,7 @@ function renderProjectPicker() {
     `).join('');
     list.innerHTML = `
         ${cards}
-        <button type="button" class="obra-card obra-card--add">
+        <button type="button" class="obra-card obra-card--add" data-action="add-obra">
             <span class="obra-card__add-icon"><i class="fas fa-plus"></i></span>
             <span class="obra-card__add-text">Agregar obra</span>
         </button>
@@ -603,6 +665,414 @@ function selectRole(roleId) {
     showScreen(screenProjectPicker);
 }
 
+function openProcessDetail() {
+    const aside = document.getElementById('process-detail');
+    const body = document.getElementById('process-detail-body');
+    const title = document.getElementById('process-detail-title');
+    const project = activeProject();
+    if (!aside || !body || !project) return;
+
+    if (title) title.textContent = project.name;
+
+    const stage = project.ownerStage || 'Albañilería';
+    const progress = project.progress;
+    const milestones = (project.milestones || []).map(m => {
+        const statusKey = m.status === 'done' ? 'done' : m.status === 'in_progress' ? 'in_progress' : 'pending';
+        const iconClass = statusKey === 'done' ? 'fa-circle-check' : statusKey === 'in_progress' ? 'fa-circle-half-stroke' : 'fa-circle';
+        const label = statusKey === 'done' ? 'Completado' : statusKey === 'in_progress' ? 'En curso' : 'Pendiente';
+        return `
+            <li class="process-milestone process-milestone--${statusKey}">
+                <span class="process-milestone__icon"><i class="fas ${iconClass}"></i></span>
+                <div class="process-milestone__body">
+                    <h5>${escapeHtml(m.text)}</h5>
+                    <small>${label}</small>
+                </div>
+            </li>
+        `;
+    }).join('');
+
+    const history = state.versionHistory
+        .filter(row => row.projectId === state.currentProject)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const timeline = history.length
+        ? history.map(row => `
+            <li class="process-event">
+                <div class="process-event__dot"></div>
+                <div class="process-event__body">
+                    <h6>${EVENT_LABELS[row.type] || 'Movimiento'}</h6>
+                    <p>${escapeHtml(row.text)}</p>
+                    <small>${roleLabel(row.actorRole)} · ${prettyDate(row.createdAt)}</small>
+                </div>
+            </li>
+        `).join('')
+        : '<p class="process-empty">Todavía no hay eventos registrados.</p>';
+
+    body.innerHTML = `
+        <section class="process-section">
+            <h4 class="process-section__kicker">Etapa actual</h4>
+            <p class="process-section__stage">${escapeHtml(stage)}</p>
+            <div class="process-section__pct">${progress}%</div>
+            <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+            <p class="process-section__meta"><i class="far fa-calendar"></i> ${project.ownerLastUpdate || 'Actualizado hace 2 días'}</p>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Hitos de obra</h4>
+            <ul class="process-milestones">${milestones || '<li class="process-empty">Sin hitos cargados.</li>'}</ul>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Historial de actividad</h4>
+            <ul class="process-timeline">${timeline}</ul>
+        </section>
+    `;
+
+    aside.hidden = false;
+}
+
+function closeProcessDetail() {
+    const aside = document.getElementById('process-detail');
+    if (aside) aside.hidden = true;
+}
+
+function openHistoryDetail() {
+    const aside = document.getElementById('history-detail');
+    const body = document.getElementById('history-detail-body');
+    const title = document.getElementById('history-detail-title');
+    const project = activeProject();
+    if (!aside || !body || !project) return;
+
+    if (title) title.textContent = `${project.name} · Historial`;
+
+    const seeded = [
+        { type: 'milestone', text: 'Se terminó la mampostería del 2do piso.', actorRole: 'developer', when: 'Hace 1 hora' },
+        { type: 'document', text: 'Documento actualizado en Loft Palermo.', actorRole: 'architect', when: 'Hace 3 horas' },
+        { type: 'remito', text: 'Se cargó un nuevo remito de hormigón.', actorRole: 'developer', when: 'Hace 5 horas' },
+        { type: 'signature', text: 'Acta de inicio firmada por el cliente.', actorRole: 'owner', when: 'Ayer' },
+        { type: 'milestone', text: 'Comenzó la etapa de Instalaciones eléctricas.', actorRole: 'architect', when: 'Hace 3 días' },
+        { type: 'document', text: 'Plano de estructura aprobado por municipalidad.', actorRole: 'developer', when: 'Hace 5 días' },
+        { type: 'milestone', text: 'Hormigonado de losa nivel 3 completado.', actorRole: 'architect', when: 'Hace 1 semana' },
+        { type: 'document', text: 'Permiso de obra emitido.', actorRole: 'developer', when: 'Hace 2 semanas' },
+        { type: 'milestone', text: 'Demolición y nivelación finalizadas.', actorRole: 'developer', when: 'Hace 3 semanas' },
+        { type: 'document', text: 'Contrato con constructora firmado.', actorRole: 'developer', when: 'Hace 1 mes' }
+    ];
+
+    const live = state.versionHistory
+        .filter(row => row.projectId === state.currentProject)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(row => ({
+            type: row.type,
+            text: row.text,
+            actorRole: row.actorRole,
+            when: prettyDate(row.createdAt)
+        }));
+
+    const events = [...live, ...seeded];
+    const iconFor = (type) => {
+        if (type === 'milestone') return 'fa-flag';
+        if (type === 'document') return 'fa-file-lines';
+        if (type === 'signature') return 'fa-pen-to-square';
+        if (type === 'remito') return 'fa-file-arrow-up';
+        return 'fa-circle-info';
+    };
+
+    body.innerHTML = `
+        <section class="process-section">
+            <h4 class="process-section__kicker">${project.name}</h4>
+            <p class="process-section__stage">${events.length} eventos</p>
+            <p class="process-section__meta">Cada cambio queda registrado con fecha y autor.</p>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Línea de tiempo</h4>
+            <ul class="process-timeline">
+                ${events.map(e => `
+                    <li class="process-event">
+                        <div class="process-event__dot"></div>
+                        <div class="process-event__body">
+                            <h6><i class="fas ${iconFor(e.type)}"></i> ${EVENT_LABELS[e.type] || 'Evento'}</h6>
+                            <p>${escapeHtml(e.text)}</p>
+                            <small>${roleLabel(e.actorRole)} · ${escapeHtml(e.when)}</small>
+                        </div>
+                    </li>
+                `).join('')}
+            </ul>
+        </section>
+    `;
+
+    aside.hidden = false;
+}
+
+function closeHistoryDetail() {
+    const aside = document.getElementById('history-detail');
+    if (aside) aside.hidden = true;
+}
+
+function openTareasDetail() {
+    const aside = document.getElementById('tareas-detail');
+    const body = document.getElementById('tareas-detail-body');
+    const title = document.getElementById('tareas-detail-title');
+    const project = activeProject();
+    if (!aside || !body || !project) return;
+
+    const role = state.currentRole;
+
+    if (role === 'developer') {
+        if (title) title.textContent = `${project.name} · Tareas pendientes`;
+
+        const remitos = [
+            { name: 'Hormigón H30 — losa nivel 4', vendor: 'Hormigonera Sur', need: 'Pedido por jefe de obra', urgent: true },
+            { name: 'Acero — refuerzos columna C7', vendor: 'Acindar', need: 'Stock crítico en obra', urgent: true },
+            { name: 'Ladrillos cerámicos — piso 5', vendor: 'Ctibor', need: 'Avanza mampostería piso 5', urgent: false },
+            { name: 'Caños PVC — sanitarios piso 3', vendor: 'Tigre', need: 'Próxima etapa instalaciones', urgent: false },
+            { name: 'Cables eléctricos — tableros piso 2', vendor: 'Prysmian', need: 'Próxima etapa instalaciones', urgent: false }
+        ];
+        const docsToReview = [
+            { name: 'Informe de avance — semana 18', from: 'Arquitecto', date: 'Hace 2 horas' },
+            { name: 'Modificación de plano — Unidad 4A', from: 'Cliente', date: 'Hace 4 horas' },
+            { name: 'Memo técnico — cambio de cañería', from: 'Arquitecto', date: 'Ayer' }
+        ];
+        const firmas = [
+            { name: 'Acta de inicio de obra', date: 'Vence hoy' },
+            { name: 'Adenda de plazos — Unidad 7B', date: 'Vence mañana' },
+            { name: 'Certificado de obra — mes 4', date: 'Vence en 3 días' }
+        ];
+        const comunicados = [
+            { name: 'Aviso de corte de luz programado', date: 'Hoy 09:00' },
+            { name: 'Nueva normativa municipal de obra', date: 'Ayer' }
+        ];
+
+        const filter = state.tareasFilter || 'all';
+        const show = (key) => filter === 'all' || filter === key;
+
+        const chip = (id, label, dot) => `
+            <button type="button" class="files-chip ${filter === id ? 'is-active' : ''}" data-tareas-filter="${id}">
+                ${dot ? `<span class="dot dot--${dot}"></span>` : ''}
+                ${label}
+            </button>
+        `;
+
+        const remitosSection = show('remitos') ? `
+            <section class="process-section">
+                <h4 class="process-section__title">Remitos por solicitar</h4>
+                <ul class="tareas-list">
+                    ${remitos.map(r => {
+                        const alreadyNotified = state.notifiedDevRemitoIds.includes(r.name);
+                        return `
+                        <li class="tarea-row ${r.urgent ? 'tarea-row--urgent' : ''}">
+                            <span class="tarea-row__icon"><i class="fas fa-file-arrow-up"></i></span>
+                            <div class="tarea-row__body">
+                                <h5>${escapeHtml(r.name)}</h5>
+                                <small>${escapeHtml(r.vendor)} · ${escapeHtml(r.need)}</small>
+                            </div>
+                            <button type="button" class="tarea-row__btn" data-action="notify-tech" ${alreadyNotified ? 'disabled' : ''}>${alreadyNotified ? 'Notificado ✓' : 'Notificar al equipo técnico'}</button>
+                        </li>
+                        `;
+                    }).join('')}
+                </ul>
+            </section>` : '';
+
+        const docsSection = show('docs') ? `
+            <section class="process-section">
+                <h4 class="process-section__title">Documentos por revisar</h4>
+                <ul class="tareas-list">
+                    ${docsToReview.map(d => `
+                        <li class="tarea-row">
+                            <span class="tarea-row__icon tarea-row__icon--doc"><i class="far fa-file-lines"></i></span>
+                            <div class="tarea-row__body">
+                                <h5>${escapeHtml(d.name)}</h5>
+                                <small>De ${escapeHtml(d.from)} · ${escapeHtml(d.date)}</small>
+                            </div>
+                            <button type="button" class="tarea-row__btn" data-action="goto-docs">Revisar</button>
+                        </li>
+                    `).join('')}
+                </ul>
+            </section>` : '';
+
+        const firmasSection = show('firmas') ? `
+            <section class="process-section">
+                <h4 class="process-section__title">Firmas pendientes</h4>
+                <ul class="tareas-list">
+                    ${firmas.map(f => `
+                        <li class="tarea-row">
+                            <span class="tarea-row__icon tarea-row__icon--firma"><i class="fas fa-pen-to-square"></i></span>
+                            <div class="tarea-row__body">
+                                <h5>${escapeHtml(f.name)}</h5>
+                                <small>${escapeHtml(f.date)}</small>
+                            </div>
+                            <button type="button" class="tarea-row__btn" data-action="goto-docs">Firmar</button>
+                        </li>
+                    `).join('')}
+                </ul>
+            </section>` : '';
+
+        const comsSection = show('coms') ? `
+            <section class="process-section">
+                <h4 class="process-section__title">Comunicados sin leer</h4>
+                <ul class="tareas-list">
+                    ${comunicados.map(c => `
+                        <li class="tarea-row">
+                            <span class="tarea-row__icon tarea-row__icon--com"><i class="far fa-comment"></i></span>
+                            <div class="tarea-row__body">
+                                <h5>${escapeHtml(c.name)}</h5>
+                                <small>${escapeHtml(c.date)}</small>
+                            </div>
+                            <button type="button" class="tarea-row__btn" data-action="goto-notifications">Leer</button>
+                        </li>
+                    `).join('')}
+                </ul>
+            </section>` : '';
+
+        body.innerHTML = `
+            <section class="process-section">
+                <h4 class="process-section__kicker">Resumen</h4>
+                <p class="process-section__meta">Tenés ${remitos.length} remitos para solicitar, ${docsToReview.length} documentos para revisar, ${firmas.length} firmas pendientes y ${comunicados.length} comunicados sin leer.</p>
+            </section>
+
+            <div class="files-chips tareas-chips">
+                ${chip('all', 'Todos')}
+                ${chip('remitos', 'Remitos', 'orange')}
+                ${chip('docs', 'Documentos', 'blue')}
+                ${chip('firmas', 'Firmas', 'orange')}
+                ${chip('coms', 'Comunicados', 'gray')}
+            </div>
+
+            ${remitosSection}
+            ${docsSection}
+            ${firmasSection}
+            ${comsSection}
+        `;
+
+        body.querySelectorAll('[data-tareas-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.tareasFilter = btn.dataset.tareasFilter;
+                openTareasDetail();
+            });
+        });
+
+        aside.hidden = false;
+        return;
+    }
+
+    if (title) title.textContent = `${project.name} · Remitos por cargar`;
+
+    const remitos = state.pendingRemitos.filter(r => r.projectId === project.id);
+
+    body.innerHTML = `
+        <section class="process-section">
+            <h4 class="process-section__kicker">Pendientes</h4>
+            <p class="process-section__stage">${remitos.length} remitos</p>
+            <p class="process-section__meta">Subilos desde la pestaña Documentos para mantenerlos al día.</p>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Remitos por cargar</h4>
+            ${remitos.length ? `
+                <ul class="tareas-list">
+                    ${remitos.map(r => `
+                        <li class="tarea-row ${r.urgent ? 'tarea-row--urgent' : ''}">
+                            <span class="tarea-row__icon"><i class="fas fa-file-arrow-up"></i></span>
+                            <div class="tarea-row__body">
+                                <h5>${escapeHtml(r.name)}</h5>
+                                <small>${escapeHtml(r.vendor)} · ${escapeHtml(r.date)}</small>
+                            </div>
+                            <button type="button" class="tarea-row__btn" data-action="goto-docs">Cargar</button>
+                        </li>
+                    `).join('')}
+                </ul>
+            ` : '<p class="process-empty">Sin remitos pendientes por ahora.</p>'}
+        </section>
+    `;
+
+    aside.hidden = false;
+}
+
+function closeTareasDetail() {
+    const aside = document.getElementById('tareas-detail');
+    if (aside) aside.hidden = true;
+}
+
+function downloadPasaporte() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast('La descarga no está disponible.');
+        return;
+    }
+    const project = activeProject();
+    if (!project) return;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(22);
+    pdf.setTextColor(42, 36, 33);
+    pdf.text('OBRATY', 20, 24);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(150, 145, 135);
+    pdf.text('Pasaporte Digital del Edificio', 20, 30);
+
+    pdf.setDrawColor(220, 215, 200);
+    pdf.line(20, 36, 190, 36);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(20);
+    pdf.setTextColor(42, 36, 33);
+    pdf.text(project.name, 20, 52);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    pdf.setTextColor(79, 111, 82);
+    pdf.text(project.location, 20, 60);
+
+    let y = 78;
+    const section = (title) => {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(61, 88, 64);
+        pdf.text(title, 20, y);
+        y += 7;
+    };
+    const row = (label, value) => {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(120, 115, 108);
+        pdf.text(label, 20, y);
+        pdf.setTextColor(42, 36, 33);
+        pdf.text(String(value), 75, y);
+        y += 6;
+    };
+
+    section('Datos generales');
+    row('Obra', project.name);
+    row('Ubicación', project.location);
+    row('Etapa actual', project.etapa || project.ownerStage || '—');
+    row('Avance', `${project.progress}%`);
+    row('Acciones pendientes', String(project.pendingActions || 0));
+    y += 4;
+
+    section('Hitos de obra');
+    (project.milestones || []).forEach(m => {
+        const status = m.status === 'done' ? 'Completado' : m.status === 'in_progress' ? 'En curso' : 'Pendiente';
+        row(status, m.text);
+    });
+    y += 4;
+
+    const projectDocs = state.documents.filter(d => d.projectId === project.id);
+    if (projectDocs.length) {
+        section('Documentación');
+        projectDocs.forEach(d => row(d.folder || '—', d.name));
+    }
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 145, 135);
+    pdf.text(`Generado ${prettyDate(isoNow())} · obraty.app`, 20, 285);
+
+    const safeName = project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    pdf.save(`pasaporte-${safeName}.pdf`);
+    showToast('Pasaporte descargado.');
+}
+
 function switchTab(tabId) {
     if (state.activeTab === 'library' && tabId !== 'library') {
         state.libraryFolder = null;
@@ -677,6 +1147,12 @@ function openNotification(notificationId) {
 
     state.focusThreadId = notification.context?.threadId || null;
 
+    if (notification.context?.tab === 'process') {
+        switchTab('home');
+        openProcessDetail();
+        return;
+    }
+
     if (notification.context?.tab === 'plan') {
         let docId = notification.context.documentId;
         if (!docId && notification.context.threadId) {
@@ -688,13 +1164,14 @@ function openNotification(notificationId) {
             docId = planDoc?.id;
         }
         if (docId) {
-            switchTab('docs');
+            switchTab('library');
             openPlanViewer(docId);
             return;
         }
     }
 
-    switchTab(notification.context?.tab || 'home');
+    const targetTab = notification.context?.tab || 'home';
+    switchTab(targetTab === 'docs' ? 'library' : targetTab);
 }
 
 function showToast(message) {
@@ -1044,21 +1521,15 @@ function renderHome() {
 
     if (role === 'developer') {
         home.innerHTML = `
-            <div class="dev-welcome">
-                <p class="dev-welcome__role">CONSTRUCTORA</p>
-                <h2 class="dev-welcome__greet">Hola, Equipo</h2>
-                <p class="dev-welcome__sub">Gestioná todas tus obras desde un solo lugar.</p>
-            </div>
-
             <header class="owner-section-head">
                 <h4>Tareas pendientes</h4>
-                <a class="owner-section-link tech-link">Ver todas <i class="fas fa-chevron-right"></i></a>
+                <a class="owner-section-link tech-link" data-action="open-tareas">Ver todas <i class="fas fa-chevron-right"></i></a>
             </header>
             <div class="dev-stats-grid">
                 <div class="dev-stat">
                     <span class="dev-stat__icon dev-stat__icon--remito"><i class="fas fa-file-arrow-up"></i></span>
                     <span class="dev-stat__num">5</span>
-                    <small>Remitos por cargar</small>
+                    <small>Remitos por solicitar</small>
                 </div>
                 <div class="dev-stat">
                     <span class="dev-stat__icon dev-stat__icon--doc"><i class="far fa-file-lines"></i></span>
@@ -1079,7 +1550,7 @@ function renderHome() {
 
             <header class="owner-section-head">
                 <h4>Actividad reciente</h4>
-                <a class="owner-section-link tech-link">Ver toda la actividad <i class="fas fa-chevron-right"></i></a>
+                <a class="owner-section-link tech-link" data-action="open-process">Ver toda la actividad <i class="fas fa-chevron-right"></i></a>
             </header>
             <div class="dev-activity">
                 <div class="dev-activity__row">
@@ -1110,7 +1581,7 @@ function renderHome() {
 
     if (role === 'architect') {
         const projectThumb = (p, idx) => `
-            <button type="button" class="tech-project-card" data-project="${p.id}">
+            <button type="button" class="tech-project-card" data-project-id="${p.id}">
                 <span class="tech-project-card__thumb tech-project-card__thumb--${idx}"></span>
                 <span class="tech-project-card__body">
                     <span class="tech-project-card__head">
@@ -1131,22 +1602,22 @@ function renderHome() {
         home.innerHTML = `
             <header class="owner-section-head">
                 <h4>Tareas pendientes</h4>
-                <a class="owner-section-link tech-link">Ver todas <i class="fas fa-chevron-right"></i></a>
+                <a class="owner-section-link tech-link" data-action="open-tareas">Ver todas <i class="fas fa-chevron-right"></i></a>
             </header>
-            <div class="tech-task-card">
+            <button type="button" class="tech-task-card" data-action="open-tareas">
                 <span class="tech-task-card__icon"><i class="fas fa-file-arrow-up"></i></span>
                 <div class="tech-task-card__body">
                     <h5>Remitos por cargar</h5>
                     <small>Cargalos desde la pestaña Docs.</small>
                 </div>
-                <span class="tech-task-card__count">${project.fieldTasks}</span>
-            </div>
+                <span class="tech-task-card__count">${state.pendingRemitos.filter(r => r.projectId === project.id).length}</span>
+            </button>
 
             <header class="owner-section-head">
                 <h4>Accesos rápidos</h4>
             </header>
             <div class="quick-access-grid">
-                <button type="button" class="quick-access" data-quick="docs">
+                <button type="button" class="quick-access" data-action="goto-docs">
                     <span class="quick-access__icon"><i class="far fa-file-lines"></i></span>
                     <span class="quick-access__body">
                         <strong>Documentos</strong>
@@ -1154,7 +1625,7 @@ function renderHome() {
                     </span>
                     <i class="fas fa-chevron-right quick-access__chev"></i>
                 </button>
-                <button type="button" class="quick-access" data-quick="tasks">
+                <button type="button" class="quick-access" data-action="open-tareas">
                     <span class="quick-access__icon"><i class="fas fa-clipboard-check"></i></span>
                     <span class="quick-access__body">
                         <strong>Tareas</strong>
@@ -1162,7 +1633,7 @@ function renderHome() {
                     </span>
                     <i class="fas fa-chevron-right quick-access__chev"></i>
                 </button>
-                <button type="button" class="quick-access" data-quick="upload">
+                <button type="button" class="quick-access" data-action="goto-docs">
                     <span class="quick-access__icon"><i class="fas fa-cloud-arrow-up"></i></span>
                     <span class="quick-access__body">
                         <strong>Subir documentos</strong>
@@ -1170,7 +1641,7 @@ function renderHome() {
                     </span>
                     <i class="fas fa-chevron-right quick-access__chev"></i>
                 </button>
-                <button type="button" class="quick-access" data-quick="comms">
+                <button type="button" class="quick-access" data-action="goto-notifications">
                     <span class="quick-access__icon"><i class="fas fa-bullhorn"></i></span>
                     <span class="quick-access__body">
                         <strong>Comunicados</strong>
@@ -1186,7 +1657,7 @@ function renderHome() {
                     <h5>Pasaporte Digital del Edificio</h5>
                     <p>Accedé al pasaporte digital de cada obra para consultar toda su información técnica y legal.</p>
                 </div>
-                <button type="button" class="passport-card__btn">Ver pasaporte <i class="fas fa-chevron-right"></i></button>
+                <button type="button" class="passport-card__btn" data-action="download-pasaporte">Ver pasaporte <i class="fas fa-chevron-right"></i></button>
             </article>
         `;
     }
@@ -1202,10 +1673,10 @@ function renderHome() {
             photos: 8
         };
         const keyDocs = project.ownerKeyDocs || [
-            { icon: 'fa-solid fa-compass-drafting', title: 'Plano de estructura', date: '10/05' },
-            { icon: 'fa-solid fa-shield-halved', title: 'Póliza de seguro de obra', date: '08/05' },
-            { icon: 'fa-solid fa-stamp', title: 'Permiso de obra', date: '05/05' },
-            { icon: 'fa-solid fa-file-signature', title: 'Contrato con constructora', date: '01/05' }
+            { icon: 'fa-solid fa-compass-drafting', title: 'Plano de estructura', date: '10/05', docId: 'doc-plano-estructura' },
+            { icon: 'fa-solid fa-shield-halved', title: 'Póliza de seguro de obra', date: '08/05', docId: 'doc-poliza-seguro' },
+            { icon: 'fa-solid fa-stamp', title: 'Permiso de obra', date: '05/05', docId: 'doc-permiso-obra' },
+            { icon: 'fa-solid fa-file-signature', title: 'Contrato con constructora', date: '01/05', docId: 'doc-contrato-constructora' }
         ];
         const upcoming = project.ownerUpcoming || [
             { icon: 'fa-trowel-bricks', title: 'Finalización de mampostería', date: '20 de mayo, 2024', status: 'in_progress' },
@@ -1213,7 +1684,7 @@ function renderHome() {
         ];
 
         const docsGrid = keyDocs.map(d => `
-            <button type="button" class="quick-doc">
+            <button type="button" class="quick-doc" data-open-plan="${d.docId}">
                 <span class="quick-doc__icon"><i class="${d.icon}"></i></span>
                 <span class="quick-doc__title">${d.title}</span>
                 <small class="quick-doc__date">Actualizado ${d.date}</small>
@@ -1254,16 +1725,16 @@ function renderHome() {
                     <p class="process-card__pct-label">de avance general</p>
                     <div class="progress-track"><div class="progress-fill" style="width: ${stageProgress}%"></div></div>
                     <p class="process-card__meta"><i class="far fa-calendar"></i> ${lastUpdate}</p>
-                    <button type="button" class="btn-pill-primary">Ver proceso completo <i class="fas fa-arrow-right"></i></button>
+                    <button type="button" class="btn-pill-primary" data-action="open-process">Ver proceso completo <i class="fas fa-arrow-right"></i></button>
                 </div>
                 <div class="process-card__photo"><i class="fas fa-building"></i></div>
             </article>
 
             <header class="owner-section-head">
                 <h4>Lo último en tu obra</h4>
-                <a class="owner-section-link">Ver todas las novedades <i class="fas fa-chevron-right"></i></a>
+                <a class="owner-section-link" data-action="goto-notifications">Ver todas las novedades <i class="fas fa-chevron-right"></i></a>
             </header>
-            <article class="update-card">
+            <article class="update-card" data-open-plan="doc-plano-4a-v1">
                 <div class="update-card__photo"><i class="fas fa-image"></i></div>
                 <div class="update-card__body">
                     <small class="update-card__date">${news.date}</small>
@@ -1275,7 +1746,7 @@ function renderHome() {
 
             <header class="owner-section-head">
                 <h4>Documentos importantes</h4>
-                <a class="owner-section-link">Ver todos <i class="fas fa-chevron-right"></i></a>
+                <a class="owner-section-link" data-action="goto-docs">Ver todos <i class="fas fa-chevron-right"></i></a>
             </header>
             <div class="quick-doc-grid">${docsGrid}</div>
 
@@ -1449,7 +1920,6 @@ function renderLibrary() {
         return `
             <header class="files-head">
                 <h2 class="files-head__title">Mis archivos</h2>
-                <span class="files-head__role">${ROLES[state.currentRole]?.label || ''} <i class="fas fa-chevron-down"></i></span>
             </header>
 
             <div class="files-search-row">
@@ -1928,10 +2398,10 @@ function renderHistory() {
 
             <header class="owner-section-head">
                 <h4>${propertiesLabel}</h4>
-                <a class="owner-section-link">Ver todas <i class="fas fa-chevron-right"></i></a>
+                <a class="owner-section-link" data-action="goto-picker">Ver todas <i class="fas fa-chevron-right"></i></a>
             </header>
             <div class="property-stack">
-                <button type="button" class="property-row">
+                <button type="button" class="property-row" data-project-id="olivares">
                     <span class="property-row__thumb property-row__thumb--olivares"></span>
                     <span class="property-row__body">
                         <h5>Torre Olivares</h5>
@@ -1939,7 +2409,7 @@ function renderHistory() {
                     </span>
                     <i class="fas fa-chevron-right property-row__chev"></i>
                 </button>
-                <button type="button" class="property-row">
+                <button type="button" class="property-row" data-project-id="centro">
                     <span class="property-row__thumb property-row__thumb--central"></span>
                     <span class="property-row__body">
                         <h5>Torre Central</h5>
@@ -1947,14 +2417,14 @@ function renderHistory() {
                     </span>
                     <i class="fas fa-chevron-right property-row__chev"></i>
                 </button>
-                <button type="button" class="add-property-btn">
+                <button type="button" class="add-property-btn" data-action="add-property">
                     <i class="fas fa-plus"></i> ${propertiesCtaLabel}
                 </button>
             </div>
 
             <header class="owner-section-head">
                 <h4>Actividad reciente</h4>
-                <a class="owner-section-link">Ver todo <i class="fas fa-chevron-right"></i></a>
+                <a class="owner-section-link" data-action="open-process">Ver todo <i class="fas fa-chevron-right"></i></a>
             </header>
             <div class="activity-list">
                 <div class="activity-row">
@@ -2011,11 +2481,19 @@ function renderHistory() {
                     </span>
                     <i class="fas fa-chevron-right profile-list__chev"></i>
                 </button>
-                <button class="profile-list__row" type="button">
+                <button class="profile-list__row" type="button" data-profile-row="permisos">
                     <span class="profile-list__icon"><i class="fas fa-user-group"></i></span>
                     <span class="profile-list__label">
                         Permisos y accesos
                         <small>Personas con acceso a tus propiedades</small>
+                    </span>
+                    <i class="fas fa-chevron-right profile-list__chev"></i>
+                </button>
+                <button class="profile-list__row profile-list__row--danger" type="button" data-action="logout">
+                    <span class="profile-list__icon profile-list__icon--danger"><i class="fas fa-arrow-right-from-bracket"></i></span>
+                    <span class="profile-list__label">
+                        Cerrar sesión
+                        <small>Salir de tu cuenta de Obraty</small>
                     </span>
                     <i class="fas fa-chevron-right profile-list__chev"></i>
                 </button>
@@ -2310,9 +2788,8 @@ function closeChat() {
 function attachEventsInActiveTab() {
     document.querySelectorAll('[data-project-id]').forEach(button => {
         button.addEventListener('click', () => {
-            state.currentProject = button.dataset.projectId;
             state.focusThreadId = null;
-            renderApp();
+            selectProject(button.dataset.projectId);
         });
     });
 
@@ -2457,6 +2934,28 @@ function boot() {
     document.getElementById('back-profiles').addEventListener('click', handleHeaderBack);
     document.getElementById('back-to-profiles').addEventListener('click', () => showScreen(screenProfiles));
 
+    const signupBtn = document.getElementById('btn-signup');
+    if (signupBtn) signupBtn.addEventListener('click', () => showScreen(screenSignup));
+    const signupBack = document.getElementById('back-signup');
+    if (signupBack) signupBack.addEventListener('click', () => showScreen(screenLogin));
+    const signupToLogin = document.getElementById('signup-to-login');
+    if (signupToLogin) signupToLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        showScreen(screenLogin);
+    });
+    const signupForm = document.getElementById('signup-form');
+    if (signupForm) {
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const role = signupForm.role?.value;
+            if (role) {
+                selectRole(role);
+            } else {
+                showScreen(screenProfiles);
+            }
+        });
+    }
+
     const libUploadBtn = document.getElementById('library-upload-btn');
     if (libUploadBtn) libUploadBtn.addEventListener('click', openUploadScreen);
 
@@ -2498,6 +2997,12 @@ function boot() {
     chatForm.addEventListener('submit', handleChatSubmit);
 
     planViewerCloseBtn.addEventListener('click', closePlanViewer);
+    const processCloseBtn = document.getElementById('process-detail-close');
+    if (processCloseBtn) processCloseBtn.addEventListener('click', closeProcessDetail);
+    const tareasCloseBtn = document.getElementById('tareas-detail-close');
+    if (tareasCloseBtn) tareasCloseBtn.addEventListener('click', closeTareasDetail);
+    const historyCloseBtn = document.getElementById('history-detail-close');
+    if (historyCloseBtn) historyCloseBtn.addEventListener('click', closeHistoryDetail);
     uploadScreenCloseBtn.addEventListener('click', () => {
         docsForm.uploading = false;
         closeUploadScreen();
@@ -2511,6 +3016,99 @@ function boot() {
         button.addEventListener('click', () => {
             startUploadSimulation(button.dataset.source);
         });
+    });
+
+    // Picker: búsqueda y filtro
+    const pickerSearch = document.querySelector('#screen-project-picker .obra-picker__search input');
+    if (pickerSearch) {
+        pickerSearch.addEventListener('input', () => {
+            const q = pickerSearch.value.trim().toLowerCase();
+            document.querySelectorAll('#project-picker-list .obra-card[data-project-id]').forEach(card => {
+                const name = card.querySelector('.obra-card__name')?.textContent.toLowerCase() || '';
+                const loc = card.querySelector('.obra-card__loc')?.textContent.toLowerCase() || '';
+                const match = !q || name.includes(q) || loc.includes(q);
+                card.style.display = match ? '' : 'none';
+            });
+        });
+    }
+    const pickerFilterBtn = document.querySelector('#screen-project-picker .obra-picker__filter');
+    if (pickerFilterBtn) {
+        pickerFilterBtn.addEventListener('click', () => {
+            alert('Filtros próximamente: por etapa, avance y pendientes.');
+        });
+    }
+
+    // Acciones globales (logout, add property/obra, profile rows)
+    document.addEventListener('click', (event) => {
+        const actionEl = event.target.closest('[data-action]');
+        if (!actionEl) return;
+        const action = actionEl.dataset.action;
+        if (action === 'logout') {
+            state.currentRole = null;
+            state.currentProject = null;
+            state.activeTab = 'home';
+            state.projectSwitcherOpen = false;
+            showScreen(screenLogin);
+        } else if (action === 'add-property' || action === 'add-obra') {
+            alert(action === 'add-property'
+                ? 'Agregar propiedad: el flujo se habilita cuando recibas la invitación del desarrollador.'
+                : 'Agregar obra: completá los datos en el formulario (próximamente).');
+        } else if (action === 'goto-history') {
+            closeProcessDetail();
+            closeTareasDetail();
+            closeHistoryDetail();
+            switchTab('history');
+        } else if (action === 'goto-notifications') {
+            closeProcessDetail();
+            closeTareasDetail();
+            closeHistoryDetail();
+            switchTab('notifications');
+        } else if (action === 'goto-docs') {
+            closeProcessDetail();
+            closeTareasDetail();
+            closeHistoryDetail();
+            switchTab('library');
+        } else if (action === 'open-process') {
+            openProcessDetail();
+        } else if (action === 'goto-picker') {
+            state.currentProject = null;
+            state.projectSwitcherOpen = false;
+            renderProjectPicker();
+            showScreen(screenProjectPicker);
+        } else if (action === 'open-tareas') {
+            openTareasDetail();
+        } else if (action === 'open-history') {
+            openHistoryDetail();
+        } else if (action === 'download-pasaporte') {
+            downloadPasaporte();
+        } else if (action === 'notify-tech') {
+            const row = actionEl.closest('.tarea-row');
+            const name = row?.querySelector('h5')?.textContent.trim() || '';
+            const small = row?.querySelector('small')?.textContent.trim() || '';
+            const vendor = small.split(' · ')[0] || '';
+            const remitoId = `rem-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            state.pendingRemitos.unshift({
+                id: remitoId,
+                projectId: state.currentProject,
+                name: `Remito ${name}`,
+                vendor,
+                date: 'Solicitado recién',
+                urgent: row?.classList.contains('tarea-row--urgent'),
+                requestedBy: 'developer'
+            });
+            state.notifiedDevRemitoIds.push(name);
+            addNotification({
+                type: 'remito',
+                title: 'Remito por cargar',
+                message: `La desarrolladora pidió cargar el remito de ${name}.`,
+                targets: ['architect'],
+                context: { tab: 'home' },
+                projectId: state.currentProject
+            });
+            showToast('Equipo técnico notificado.');
+            actionEl.disabled = true;
+            actionEl.textContent = 'Notificado ✓';
+        }
     });
 
     showScreen(screenLogin);

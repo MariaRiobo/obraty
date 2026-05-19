@@ -2480,6 +2480,395 @@ body {
     font-size: 12px;
 }
 
+/* ===== Process detail ===== */
+.process-section {
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    border-radius: 16px;
+    margin-bottom: 14px;
+}
+
+.process-section__kicker {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.process-section__stage {
+    font-family: 'Outfit', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+.process-section__pct {
+    font-family: 'Outfit', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--assistant-olive-deep);
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.process-section__meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.process-section__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 12px;
+}
+
+.process-milestones,
+.process-timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.process-milestone {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.process-milestone__icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--line-soft);
+    color: var(--text-soft);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.process-milestone--done .process-milestone__icon {
+    background: var(--assistant-olive-soft);
+    color: var(--assistant-olive-deep);
+}
+
+.process-milestone--in_progress .process-milestone__icon {
+    background: var(--action-terracotta-soft);
+    color: var(--action-terracotta-deep);
+}
+
+.process-milestone__body h5 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.3;
+}
+
+.process-milestone__body small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.process-event {
+    display: flex;
+    gap: 12px;
+    position: relative;
+    padding-left: 4px;
+}
+
+.process-event__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--assistant-olive);
+    margin-top: 5px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px var(--assistant-olive-soft);
+}
+
+.process-event__body h6 {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 2px;
+}
+
+.process-event__body p {
+    font-size: 13px;
+    color: var(--text-dark);
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+
+.process-event__body small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.process-empty {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.tareas-chips {
+    margin-bottom: 14px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+}
+
+.tareas-chips .files-chip {
+    flex-shrink: 0;
+}
+
+.tareas-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tarea-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--line-gray);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+.tarea-row--urgent {
+    border-color: var(--action-terracotta);
+    background: var(--action-terracotta-soft);
+}
+
+.tarea-row__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--action-terracotta-soft);
+    color: var(--action-terracotta-deep);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.tarea-row__icon--doc,
+.tarea-row__icon--firma,
+.tarea-row__icon--com {
+    background: var(--assistant-olive-soft);
+    color: var(--assistant-olive-deep);
+}
+
+.tarea-row__btn:disabled {
+    background: var(--line-gray);
+    color: var(--text-muted);
+    cursor: default;
+}
+
+.tarea-row__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.tarea-row__body h5 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.3;
+    margin-bottom: 2px;
+}
+
+.tarea-row__body small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.tarea-row__btn {
+    border: 0;
+    background: var(--assistant-olive);
+    color: var(--white);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+}
+
+.tarea-row__btn:hover {
+    background: var(--assistant-olive-deep);
+}
+
+/* ===== Signup screen ===== */
+.signup-back {
+    margin-bottom: 18px;
+}
+
+.signup-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.signup-subtle {
+    margin-bottom: 22px;
+    text-align: center;
+}
+
+.signup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.signup-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.signup-field > span {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dark);
+    letter-spacing: 0.01em;
+}
+
+.signup-field > span small {
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: 4px;
+}
+
+.signup-field input[type="text"],
+.signup-field input[type="email"],
+.signup-field input[type="tel"],
+.signup-field input[type="password"] {
+    border: 1px solid var(--line-gray);
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-dark);
+    transition: border-color 0.2s ease;
+}
+
+.signup-field input:focus {
+    outline: none;
+    border-color: var(--assistant-olive);
+}
+
+.signup-field--role {
+    gap: 8px;
+}
+
+.signup-role-group {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.signup-role {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 6px;
+    border: 1px solid var(--line-gray);
+    border-radius: 12px;
+    background: var(--surface);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    text-align: center;
+}
+
+.signup-role input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.signup-role__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--assistant-olive-soft);
+    color: var(--assistant-olive-deep);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+}
+
+.signup-role__label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.2;
+}
+
+.signup-role:has(input:checked) {
+    border-color: var(--assistant-olive);
+    background: var(--assistant-olive-soft);
+}
+
+.signup-role:hover {
+    border-color: var(--assistant-olive);
+}
+
+.signup-field--check {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 4px;
+}
+
+.signup-field--check input {
+    margin-top: 2px;
+    accent-color: var(--assistant-olive);
+}
+
+.signup-form .btn-primary {
+    margin-top: 8px;
+}
+
+.signup-foot {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+.signup-foot a {
+    color: var(--assistant-olive-deep);
+    font-weight: 700;
+    text-decoration: none;
+}
+
 /* ===== Obra picker (cards grid) ===== */
 .obra-picker__back {
     margin-bottom: 18px;
@@ -3009,6 +3398,7 @@ body {
     display: grid;
     gap: 2px;
     box-shadow: var(--shadow-sm);
+    color: var(--text-dark);
 }
 
 .dev-stat__icon {
@@ -3285,6 +3675,18 @@ body {
     border-radius: 16px;
     padding: 14px;
     box-shadow: var(--shadow-sm);
+    width: 100%;
+    font-family: inherit;
+    color: var(--text-dark);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.18s ease, box-shadow 0.2s ease;
+}
+
+.tech-task-card:hover {
+    border-color: var(--assistant-olive);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 .tech-task-card__icon {
@@ -3912,6 +4314,15 @@ body {
 .profile-list__chev {
     color: var(--text-soft);
     font-size: 12px;
+}
+
+.profile-list__icon--danger {
+    background: var(--action-terracotta-soft);
+    color: var(--action-terracotta-deep);
+}
+
+.profile-list__row--danger .profile-list__label {
+    color: var(--action-terracotta-deep);
 }
 
 .export-card {
