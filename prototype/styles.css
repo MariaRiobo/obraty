@@ -101,13 +101,14 @@ body {
 
 .hero-copy {
     margin-bottom: 28px;
+    text-align: center;
 }
 
 .hero-copy h1 {
     font-family: 'Outfit', sans-serif;
-    font-size: 34px;
+    font-size: 22px;
     font-weight: 600;
-    line-height: 1.05;
+    line-height: 1.2;
     letter-spacing: -0.01em;
     margin-bottom: 12px;
 }
@@ -150,7 +151,7 @@ body {
 }
 
 .btn-ghost {
-    background: transparent;
+    background: var(--white);
     border: 1px solid var(--line-gray);
     color: var(--text-dark);
 }
@@ -1882,7 +1883,7 @@ body {
     }
 
     .hero-copy h1 {
-        font-size: 28px;
+        font-size: 20px;
     }
 }
 
