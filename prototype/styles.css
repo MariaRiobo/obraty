@@ -190,6 +190,8 @@ body {
     display: grid;
     place-items: center;
     cursor: pointer;
+    flex-shrink: 0;
+    align-self: flex-start;
     transition: border-color 0.2s ease, background 0.2s ease;
 }
 
@@ -220,10 +222,12 @@ body {
     line-height: 1.1;
     letter-spacing: -0.01em;
     margin-bottom: 10px;
+    text-align: center;
 }
 
 #screen-profiles .profiles-subtle {
     margin-bottom: 28px;
+    text-align: center;
 }
 
 #screen-profiles .profile-grid {
@@ -2479,6 +2483,13 @@ body {
 /* ===== Obra picker (cards grid) ===== */
 .obra-picker__back {
     margin-bottom: 18px;
+}
+
+.obra-picker__title,
+.obra-picker__subtle,
+.obra-picker__search,
+.obra-picker__grid {
+    flex-shrink: 0;
 }
 
 .obra-picker__title {
