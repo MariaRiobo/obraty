@@ -209,6 +209,48 @@ body {
     letter-spacing: -0.01em;
 }
 
+#screen-profiles .profiles-back {
+    margin-bottom: 18px;
+}
+
+#screen-profiles .profiles-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+}
+
+#screen-profiles .profiles-subtle {
+    margin-bottom: 28px;
+}
+
+#screen-profiles .profile-grid {
+    gap: 14px;
+}
+
+.profile-chevron {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.profiles-trust {
+    margin-top: auto;
+    padding-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.profiles-trust i {
+    color: var(--assistant-olive);
+}
+
 .title-block {
     flex: 1;
 }
@@ -264,8 +306,9 @@ body {
     text-align: left;
     padding: 18px;
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
     cursor: pointer;
     color: var(--text-dark);
     font-family: inherit;
@@ -2433,6 +2476,233 @@ body {
     font-size: 12px;
 }
 
+/* ===== Obra picker (cards grid) ===== */
+.obra-picker__back {
+    margin-bottom: 18px;
+}
+
+.obra-picker__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+}
+
+.obra-picker__subtle {
+    margin-bottom: 18px;
+}
+
+.obra-picker__search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line-gray);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow-sm);
+}
+
+.obra-picker__search > i {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.obra-picker__search input {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-dark);
+    outline: none;
+}
+
+.obra-picker__search input::placeholder {
+    color: var(--text-muted);
+}
+
+.obra-picker__filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--assistant-olive-deep);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-left: 1px solid var(--line-gray);
+}
+
+.obra-picker__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.obra-card {
+    border: 1px solid var(--line-gray);
+    border-radius: 16px;
+    background: var(--surface);
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text-dark);
+    font-family: inherit;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.18s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.obra-card:hover {
+    border-color: var(--assistant-olive);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.obra-card__media {
+    position: relative;
+    display: block;
+    height: 110px;
+    background-image: url('obra_torre.jpg');
+    background-size: cover;
+    background-position: center;
+}
+
+.obra-card__media--1 { filter: hue-rotate(-15deg) saturate(1.1); }
+.obra-card__media--2 { filter: hue-rotate(15deg) brightness(0.95); }
+
+.obra-card__pct {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--assistant-olive);
+    color: var(--white);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    box-shadow: 0 4px 10px rgba(79, 111, 82, 0.25);
+}
+
+.obra-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+}
+
+.obra-card__name {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.obra-card__loc {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.obra-card__loc i {
+    font-size: 11px;
+    color: var(--assistant-olive);
+}
+
+.obra-card__progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.obra-card__progress-row .progress-track {
+    flex: 1;
+}
+
+.obra-card__chev {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.obra-card__foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line-soft);
+}
+
+.obra-card__pending {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--assistant-olive-soft);
+    color: var(--assistant-olive-deep);
+    font-size: 12px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+}
+
+.obra-card__pending.is-zero {
+    background: var(--line-soft);
+    color: var(--text-muted);
+}
+
+.obra-card__etapa {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.obra-card--add {
+    border: 1.5px dashed var(--line-gray);
+    background: transparent;
+    box-shadow: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 100%;
+    padding: 24px 12px;
+}
+
+.obra-card--add:hover {
+    border-color: var(--assistant-olive);
+    background: var(--assistant-olive-soft);
+}
+
+.obra-card__add-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1.5px solid var(--assistant-olive);
+    color: var(--assistant-olive-deep);
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+}
+
+.obra-card__add-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--assistant-olive-deep);
+}
+
 /* ===== Project switcher (in brand header) ===== */
 .project-switcher {
     position: relative;
@@ -2495,6 +2765,10 @@ body {
     box-shadow: var(--shadow-md);
     z-index: 20;
     animation: fadeIn 0.18s ease;
+}
+
+.project-switcher__menu[hidden] {
+    display: none;
 }
 
 .project-switcher__option {

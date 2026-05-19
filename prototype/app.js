@@ -507,33 +507,31 @@ function showScreen(target) {
 function renderProjectPicker() {
     const list = document.getElementById('project-picker-list');
     if (!list) return;
-    const rows = state.projects.map((p, i) => `
-        <button type="button" class="dev-obra-row" data-project-id="${p.id}">
-            <span class="dev-obra-row__thumb dev-obra-row__thumb--${i % 3}"></span>
-            <span class="dev-obra-row__info">
-                <strong>${p.name}</strong>
-                <small>${p.location}</small>
+    const cards = state.projects.map((p, i) => `
+        <button type="button" class="obra-card" data-project-id="${p.id}">
+            <span class="obra-card__media obra-card__media--${i % 3}">
+                <span class="obra-card__pct">${p.progress}%</span>
             </span>
-            <span class="dev-obra-row__etapa">${p.etapa}</span>
-            <span class="dev-obra-row__avance">
-                <span class="dev-obra-row__pct">${p.progress}%</span>
-                <span class="progress-track"><span class="progress-fill" style="width:${p.progress}%"></span></span>
+            <span class="obra-card__body">
+                <strong class="obra-card__name">${p.name}</strong>
+                <span class="obra-card__loc"><i class="fas fa-location-dot"></i>${p.location}</span>
+                <span class="obra-card__progress-row">
+                    <span class="progress-track"><span class="progress-fill" style="width:${p.progress}%"></span></span>
+                    <i class="fas fa-chevron-right obra-card__chev"></i>
+                </span>
+                <span class="obra-card__foot">
+                    <span class="obra-card__pending ${p.pendingActions === 0 ? 'is-zero' : ''}">${p.pendingActions}</span>
+                    <span class="obra-card__etapa">${p.etapa}</span>
+                </span>
             </span>
-            <span class="dev-obra-row__pendientes ${p.pendingActions === 0 ? 'is-zero' : ''}">${p.pendingActions}</span>
-            <i class="fas fa-chevron-right dev-obra-row__chev"></i>
         </button>
     `).join('');
     list.innerHTML = `
-        <div class="dev-obras-table">
-            <div class="dev-obras-table__head">
-                <span>Obra</span>
-                <span>Etapa</span>
-                <span>Avance</span>
-                <span class="dev-obras-table__pend">Pend.</span>
-                <span></span>
-            </div>
-            ${rows}
-        </div>
+        ${cards}
+        <button type="button" class="obra-card obra-card--add">
+            <span class="obra-card__add-icon"><i class="fas fa-plus"></i></span>
+            <span class="obra-card__add-text">Agregar obra</span>
+        </button>
     `;
     list.querySelectorAll('[data-project-id]').forEach(btn => {
         btn.addEventListener('click', () => selectProject(btn.dataset.projectId));
