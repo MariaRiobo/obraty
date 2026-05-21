@@ -954,35 +954,77 @@ function openTareasDetail() {
         return;
     }
 
-    if (title) title.textContent = `${project.name} · Remitos por cargar`;
+    if (role === 'architect') {
+        const header = aside.querySelector('.plan-viewer__header');
+        if (header) header.classList.add('is-architect');
+        if (title) title.textContent = 'Mis tareas';
+        const kicker = aside.querySelector('.kicker');
+        if (kicker) kicker.innerHTML = `<i class="fas fa-location-dot"></i> ${project.name} <i class="fas fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>`;
 
-    const remitos = state.pendingRemitos.filter(r => r.projectId === project.id);
-
-    body.innerHTML = `
-        <section class="process-section">
-            <h4 class="process-section__kicker">Pendientes</h4>
-            <p class="process-section__stage">${remitos.length} remitos</p>
-            <p class="process-section__meta">Subilos desde la pestaña Documentos para mantenerlos al día.</p>
-        </section>
-
-        <section class="process-section">
-            <h4 class="process-section__title">Remitos por cargar</h4>
-            ${remitos.length ? `
+        body.innerHTML = `
+            <section class="process-section">
+                <h4 class="process-section__title">Pendientes (4)</h4>
                 <ul class="tareas-list">
-                    ${remitos.map(r => `
-                        <li class="tarea-row ${r.urgent ? 'tarea-row--urgent' : ''}">
-                            <span class="tarea-row__icon"><i class="fas fa-file-arrow-up"></i></span>
-                            <div class="tarea-row__body">
-                                <h5>${escapeHtml(r.name)}</h5>
-                                <small>${escapeHtml(r.vendor)} · ${escapeHtml(r.date)}</small>
-                            </div>
-                            <button type="button" class="tarea-row__btn" data-action="goto-docs">Cargar</button>
-                        </li>
-                    `).join('')}
+                    <li class="tarea-row">
+                        <span class="tarea-row__icon" style="color: #cda869; background: #fdf5e6;"><i class="fas fa-camera"></i></span>
+                        <div class="tarea-row__body">
+                            <h5>Subir fotos de avance</h5>
+                            <small>Alta prioridad · Sector: Piso 4 · Vence hoy</small>
+                        </div>
+                        <button type="button" class="tarea-row__btn" onclick="openUploadScreen(); closeTareasDetail();">Subir fotos</button>
+                    </li>
+                    <li class="tarea-row">
+                        <span class="tarea-row__icon tarea-row__icon--doc"><i class="far fa-file-lines"></i></span>
+                        <div class="tarea-row__body">
+                            <h5>Cargar remito de materiales</h5>
+                            <small>Alta prioridad · Proveedor: Ferrum · Vence mañana</small>
+                        </div>
+                        <button type="button" class="tarea-row__btn" onclick="openUploadScreen(); closeTareasDetail();">Adjuntar PDF</button>
+                    </li>
+                    <li class="tarea-row">
+                        <span class="tarea-row__icon" style="color: #6a95c7; background: #eef3f9;"><i class="fas fa-wrench"></i></span>
+                        <div class="tarea-row__body">
+                            <h5>Revisar instalación eléctrica</h5>
+                            <small>Media prioridad · Arq. Martín López · Vence en 2 días</small>
+                        </div>
+                        <button type="button" class="tarea-row__btn" onclick="this.textContent='Listo ✓'; this.disabled=true; showToast('Tarea marcada como lista.');">Marcar listo</button>
+                    </li>
+                    <li class="tarea-row">
+                        <span class="tarea-row__icon tarea-row__icon--com"><i class="far fa-comment-dots"></i></span>
+                        <div class="tarea-row__body">
+                            <h5>Confirmar entrega de carpinterías</h5>
+                            <small>Baja prioridad · Aberturas del Sur · Vence en 3 días</small>
+                        </div>
+                        <button type="button" class="tarea-row__btn" onclick="this.textContent='Confirmado ✓'; this.disabled=true; showToast('Entrega confirmada.');">Confirmar</button>
+                    </li>
                 </ul>
-            ` : '<p class="process-empty">Sin remitos pendientes por ahora.</p>'}
-        </section>
-    `;
+            </section>
+
+            <section class="process-section">
+                <h4 class="process-section__title">En revisión (2)</h4>
+                <ul class="tareas-list">
+                    <li class="tarea-row" style="cursor: pointer;" onclick="openPlanViewer('doc-plano-4a-v1'); closeTareasDetail();">
+                        <span class="tarea-row__icon" style="color: #8c8273; background: #f2efe9;"><i class="fas fa-clipboard-check"></i></span>
+                        <div class="tarea-row__body">
+                            <h5>Planos conforme a obra</h5>
+                            <small>En revisión · Arq. Martina López · Enviado ayer</small>
+                        </div>
+                        <i class="fas fa-chevron-right" style="color:var(--text-soft); padding: 0 8px;"></i>
+                    </li>
+                </ul>
+            </section>
+            
+            <button class="fab-btn" onclick="openUploadScreen(); closeTareasDetail();" style="position: absolute; bottom: 24px; right: 24px; background: var(--assistant-olive); color: var(--white); border: none; border-radius: 999px; padding: 12px 20px; font-size: 14px; font-weight: 700; box-shadow: 0 8px 16px rgba(79, 111, 82, 0.3); cursor: pointer; display: flex; align-items: center; gap: 8px; z-index: 10;">
+                Cargar Archivos <i class="fas fa-plus"></i>
+            </button>
+        `;
+    } else {
+        const header = aside.querySelector('.plan-viewer__header');
+        if (header) header.classList.remove('is-architect');
+        const kicker = aside.querySelector('.kicker');
+        if (kicker) kicker.textContent = 'Tareas pendientes';
+        if (title) title.textContent = `${project.name} · Tareas pendientes`;
+    }
 
     aside.hidden = false;
 }
@@ -1600,19 +1642,6 @@ function renderHome() {
         const projectsMarkup = state.projects.map((p, i) => projectThumb(p, i)).join('');
 
         home.innerHTML = `
-            <header class="owner-section-head">
-                <h4>Tareas pendientes</h4>
-                <a class="owner-section-link tech-link" data-action="open-tareas">Ver todas <i class="fas fa-chevron-right"></i></a>
-            </header>
-            <button type="button" class="tech-task-card" data-action="open-tareas">
-                <span class="tech-task-card__icon"><i class="fas fa-file-arrow-up"></i></span>
-                <div class="tech-task-card__body">
-                    <h5>Remitos por cargar</h5>
-                    <small>Cargalos desde la pestaña Docs.</small>
-                </div>
-                <span class="tech-task-card__count">${state.pendingRemitos.filter(r => r.projectId === project.id).length}</span>
-            </button>
-
             <header class="owner-section-head">
                 <h4>Accesos rápidos</h4>
             </header>
