@@ -74,6 +74,106 @@ function tabTitleFor(tabId) {
     return TAB_TITLES[tabId] || '';
 }
 
+// ===== Remitos: lista inicial por obra =====
+function seedRemitos() {
+    const base = [
+        { name: 'Hormigón H30 — losa nivel 4', vendor: 'Hormigonera Sur', need: 'Pedido por jefe de obra', urgent: true },
+        { name: 'Acero — refuerzos columna C7', vendor: 'Acindar', need: 'Stock crítico en obra', urgent: true },
+        { name: 'Ladrillos cerámicos — piso 5', vendor: 'Ctibor', need: 'Avanza mampostería piso 5', urgent: false },
+        { name: 'Caños PVC — sanitarios piso 3', vendor: 'Tigre', need: 'Próxima etapa instalaciones', urgent: false },
+        { name: 'Cables eléctricos — tableros piso 2', vendor: 'Prysmian', need: 'Próxima etapa instalaciones', urgent: false }
+    ];
+    const out = [];
+    ['patria', 'loft'].forEach(projectId => {
+        base.forEach((item, index) => {
+            out.push({
+                id: `rem-${projectId}-${index + 1}`,
+                projectId,
+                status: 'pendiente', // pendiente -> solicitado -> cargado
+                documentId: null,
+                ...item
+            });
+        });
+    });
+    return out;
+}
+
+// ===== Persistencia: sobrevive al refresh y se sincroniza entre pestañas =====
+const STORAGE_DATA_KEY = 'obraty:data:v1';
+const STORAGE_SESSION_KEY = 'obraty:session:v1';
+const PERSIST_DATA_KEYS = [
+    'documents', 'notifications', 'threads', 'versionHistory', 'remitos',
+    'completedTaskIds', 'ownerCommentDone', 'mentionDone', 'techResponseDone', 'budgetRequested'
+];
+const PERSIST_SESSION_KEYS = ['currentRole', 'currentProject', 'activeTab'];
+let lastDataRaw = null;
+
+function persistData() {
+    try {
+        const data = {};
+        PERSIST_DATA_KEYS.forEach(key => { data[key] = state[key]; });
+        const raw = JSON.stringify(data);
+        if (raw === lastDataRaw) return;
+        localStorage.setItem(STORAGE_DATA_KEY, raw);
+        lastDataRaw = raw;
+    } catch (err) {
+        // Cuota excedida: guardamos sin el contenido pesado de los archivos.
+        try {
+            const data = {};
+            PERSIST_DATA_KEYS.forEach(key => { data[key] = state[key]; });
+            data.documents = (state.documents || []).map(doc => {
+                const copy = { ...doc };
+                delete copy.fileData;
+                return copy;
+            });
+            const raw = JSON.stringify(data);
+            localStorage.setItem(STORAGE_DATA_KEY, raw);
+            lastDataRaw = raw;
+        } catch (err2) {
+            /* sin almacenamiento disponible */
+        }
+    }
+}
+
+function persistSession() {
+    try {
+        const session = {};
+        PERSIST_SESSION_KEYS.forEach(key => { session[key] = state[key]; });
+        localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(session));
+    } catch (err) { /* noop */ }
+}
+
+function applyData(raw) {
+    if (!raw) return false;
+    let data;
+    try { data = JSON.parse(raw); } catch (err) { return false; }
+    if (!data || typeof data !== 'object') return false;
+    PERSIST_DATA_KEYS.forEach(key => {
+        if (data[key] !== undefined) state[key] = data[key];
+    });
+    lastDataRaw = raw;
+    return true;
+}
+
+function loadPersistedData() {
+    try { return applyData(localStorage.getItem(STORAGE_DATA_KEY)); }
+    catch (err) { return false; }
+}
+
+function loadPersistedSession() {
+    let raw;
+    try { raw = localStorage.getItem(STORAGE_SESSION_KEY); }
+    catch (err) { return false; }
+    if (!raw) return false;
+    let session;
+    try { session = JSON.parse(raw); } catch (err) { return false; }
+    if (!session || typeof session !== 'object') return false;
+    PERSIST_SESSION_KEYS.forEach(key => {
+        if (session[key] !== undefined) state[key] = session[key];
+    });
+    return true;
+}
+
 const state = {
     currentRole: null,
     currentProject: null,
@@ -86,14 +186,8 @@ const state = {
     librarySearch: '',
     libraryView: 'list',
     tareasFilter: 'all',
-    pendingRemitos: [
-        { id: 'rem-seed-1', projectId: 'patria', name: 'Remito hormigón H30 — losa nivel 4', vendor: 'Hormigonera Sur', date: 'Vence hoy', urgent: true, requestedBy: 'developer' },
-        { id: 'rem-seed-2', projectId: 'patria', name: 'Remito acero — refuerzos columna C7', vendor: 'Acindar', date: 'Vence mañana', urgent: true, requestedBy: 'developer' },
-        { id: 'rem-seed-3', projectId: 'patria', name: 'Remito ladrillos cerámicos — piso 5', vendor: 'Ctibor', date: 'Vence en 2 días', urgent: false, requestedBy: 'developer' },
-        { id: 'rem-seed-4', projectId: 'patria', name: 'Remito caños PVC — sanitarios piso 3', vendor: 'Tigre', date: 'Vence en 3 días', urgent: false, requestedBy: 'developer' },
-        { id: 'rem-seed-5', projectId: 'patria', name: 'Remito cables eléctricos — tableros piso 2', vendor: 'Prysmian', date: 'Vence en 5 días', urgent: false, requestedBy: 'developer' }
-    ],
-    notifiedDevRemitoIds: [],
+    remitos: seedRemitos(),
+    completedTaskIds: [],
     focusThreadId: null,
     ownerCommentDone: false,
     mentionDone: false,
@@ -453,7 +547,9 @@ const docsForm = {
     observation: '',
     source: null,
     uploading: false,
-    freshDocId: null
+    freshDocId: null,
+    file: null,
+    remitoId: null
 };
 
 function ensureThread(documentId) {
@@ -475,6 +571,16 @@ function ensureThread(documentId) {
 }
 
 function downloadDocument(doc) {
+    if (doc.fileData) {
+        const link = document.createElement('a');
+        link.href = doc.fileData;
+        link.download = doc.fileName || doc.name || 'documento';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showToast('Archivo descargado.');
+        return;
+    }
     if (!window.jspdf || !window.jspdf.jsPDF) {
         showToast('La descarga no está disponible.');
         return;
@@ -661,6 +767,7 @@ function selectRole(roleId) {
         return;
     }
     state.currentProject = null;
+    persistSession();
     renderProjectPicker();
     showScreen(screenProjectPicker);
 }
@@ -820,13 +927,8 @@ function openTareasDetail() {
     if (role === 'developer') {
         if (title) title.textContent = project.name;
 
-        const remitos = [
-            { name: 'Hormigón H30 — losa nivel 4', vendor: 'Hormigonera Sur', need: 'Pedido por jefe de obra', urgent: true },
-            { name: 'Acero — refuerzos columna C7', vendor: 'Acindar', need: 'Stock crítico en obra', urgent: true },
-            { name: 'Ladrillos cerámicos — piso 5', vendor: 'Ctibor', need: 'Avanza mampostería piso 5', urgent: false },
-            { name: 'Caños PVC — sanitarios piso 3', vendor: 'Tigre', need: 'Próxima etapa instalaciones', urgent: false },
-            { name: 'Cables eléctricos — tableros piso 2', vendor: 'Prysmian', need: 'Próxima etapa instalaciones', urgent: false }
-        ];
+        const remitos = state.remitos.filter(r => r.projectId === state.currentProject);
+        const remitosPendientes = remitos.filter(r => r.status === 'pendiente').length;
         const docsToReview = [
             { name: 'Informe de avance — semana 18', from: 'Arquitecto', date: 'Hace 2 horas' },
             { name: 'Modificación de plano — Unidad 4A', from: 'Cliente', date: 'Hace 4 horas' },
@@ -856,19 +958,30 @@ function openTareasDetail() {
             <section class="process-section">
                 <h4 class="process-section__title">Remitos por solicitar</h4>
                 <ul class="tareas-list">
-                    ${remitos.map(r => {
-            const alreadyNotified = state.notifiedDevRemitoIds.includes(r.name);
+                    ${remitos.length ? remitos.map(r => {
+            let btn;
+            let statusText;
+            if (r.status === 'pendiente') {
+                btn = `<button type="button" class="tarea-row__btn" data-action="notify-tech" data-remito-id="${r.id}">Notificar al equipo técnico</button>`;
+                statusText = escapeHtml(r.need);
+            } else if (r.status === 'solicitado') {
+                btn = `<button type="button" class="tarea-row__btn" disabled>Notificado ✓</button>`;
+                statusText = 'Esperando que el equipo técnico lo cargue';
+            } else {
+                btn = `<button type="button" class="tarea-row__btn" data-action="ver-remito" data-doc-id="${r.documentId}">Ver remito</button>`;
+                statusText = 'Cargado por el equipo técnico';
+            }
             return `
-                        <li class="tarea-row ${r.urgent ? 'tarea-row--urgent' : ''}">
+                        <li class="tarea-row ${r.urgent && r.status === 'pendiente' ? 'tarea-row--urgent' : ''}">
                             <span class="tarea-row__icon"><i class="fas fa-file-arrow-up"></i></span>
                             <div class="tarea-row__body">
                                 <h5>${escapeHtml(r.name)}</h5>
-                                <small>${escapeHtml(r.vendor)} · ${escapeHtml(r.need)}</small>
+                                <small>${escapeHtml(r.vendor)} · ${statusText}</small>
                             </div>
-                            <button type="button" class="tarea-row__btn" data-action="notify-tech" ${alreadyNotified ? 'disabled' : ''}>${alreadyNotified ? 'Notificado ✓' : 'Notificar al equipo técnico'}</button>
+                            ${btn}
                         </li>
                         `;
-        }).join('')}
+        }).join('') : '<li class="tarea-empty">No hay remitos para esta obra.</li>'}
                 </ul>
             </section>` : '';
 
@@ -926,7 +1039,7 @@ function openTareasDetail() {
         body.innerHTML = `
             <section class="process-section">
                 <h4 class="process-section__kicker">Resumen</h4>
-                <p class="process-section__meta">Tenés ${remitos.length} remitos para solicitar, ${docsToReview.length} documentos para revisar, ${firmas.length} firmas pendientes y ${comunicados.length} comunicados sin leer.</p>
+                <p class="process-section__meta">Tenés ${remitosPendientes} remito${remitosPendientes === 1 ? '' : 's'} para solicitar, ${docsToReview.length} documentos para revisar, ${firmas.length} firmas pendientes y ${comunicados.length} comunicados sin leer.</p>
             </section>
 
             <div class="files-chips tareas-chips">
@@ -959,11 +1072,45 @@ function openTareasDetail() {
         if (header) header.classList.add('is-architect');
         if (title) title.textContent = 'Mis tareas';
         const kicker = aside.querySelector('.kicker');
-        if (kicker) kicker.innerHTML = `<i class="fas fa-location-dot"></i> ${project.name} <i class="fas fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>`;
+        if (kicker) kicker.innerHTML = `<i class="fas fa-location-dot"></i> ${escapeHtml(project.name)} <i class="fas fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>`;
+
+        const projectRemitos = state.remitos.filter(r =>
+            r.projectId === state.currentProject && (r.status === 'solicitado' || r.status === 'cargado'));
+        const remitoRows = projectRemitos.length
+            ? projectRemitos.map(r => {
+                if (r.status === 'cargado') {
+                    return `
+                    <li class="tarea-row" style="cursor:pointer;" onclick="openPlanViewer('${r.documentId}'); closeTareasDetail();">
+                        <span class="tarea-row__icon" style="color:#4f6f52;background:var(--assistant-olive-soft);"><i class="fas fa-circle-check"></i></span>
+                        <div class="tarea-row__body">
+                            <h5>${escapeHtml(r.name)}</h5>
+                            <small>Remito cargado · ${escapeHtml(r.vendor)}</small>
+                        </div>
+                        <button type="button" class="tarea-row__btn" onclick="event.stopPropagation(); openPlanViewer('${r.documentId}'); closeTareasDetail();">Ver</button>
+                    </li>`;
+                }
+                return `
+                    <li class="tarea-row ${r.urgent ? 'tarea-row--urgent' : ''}">
+                        <span class="tarea-row__icon tarea-row__icon--doc"><i class="far fa-file-lines"></i></span>
+                        <div class="tarea-row__body">
+                            <h5>Cargar remito: ${escapeHtml(r.name)}</h5>
+                            <small>Solicitado por la desarrolladora · ${escapeHtml(r.vendor)}</small>
+                        </div>
+                        <button type="button" class="tarea-row__btn" onclick="openUploadForRemito('${r.id}')">Adjuntar PDF</button>
+                    </li>`;
+            }).join('')
+            : '<li class="tarea-empty">No hay remitos solicitados para esta obra.</li>';
+
+        const isDone = (taskId) => state.completedTaskIds.includes(taskId);
 
         body.innerHTML = `
             <section class="process-section">
-                <h4 class="process-section__title">Pendientes (4)</h4>
+                <h4 class="process-section__title">Remitos solicitados (${projectRemitos.filter(r => r.status === 'solicitado').length})</h4>
+                <ul class="tareas-list">${remitoRows}</ul>
+            </section>
+
+            <section class="process-section">
+                <h4 class="process-section__title">Otras tareas</h4>
                 <ul class="tareas-list">
                     <li class="tarea-row">
                         <span class="tarea-row__icon" style="color: #cda869; background: #fdf5e6;"><i class="fas fa-camera"></i></span>
@@ -971,15 +1118,7 @@ function openTareasDetail() {
                             <h5>Subir fotos de avance</h5>
                             <small>Alta prioridad · Sector: Piso 4 · Vence hoy</small>
                         </div>
-                        <button type="button" class="tarea-row__btn" onclick="openUploadScreen(); closeTareasDetail();">Subir fotos</button>
-                    </li>
-                    <li class="tarea-row">
-                        <span class="tarea-row__icon tarea-row__icon--doc"><i class="far fa-file-lines"></i></span>
-                        <div class="tarea-row__body">
-                            <h5>Cargar remito de materiales</h5>
-                            <small>Alta prioridad · Proveedor: Ferrum · Vence mañana</small>
-                        </div>
-                        <button type="button" class="tarea-row__btn" onclick="openUploadScreen(); closeTareasDetail();">Adjuntar PDF</button>
+                        <button type="button" class="tarea-row__btn" onclick="closeTareasDetail(); openUploadScreen();">Subir fotos</button>
                     </li>
                     <li class="tarea-row">
                         <span class="tarea-row__icon" style="color: #6a95c7; background: #eef3f9;"><i class="fas fa-wrench"></i></span>
@@ -987,7 +1126,7 @@ function openTareasDetail() {
                             <h5>Revisar instalación eléctrica</h5>
                             <small>Media prioridad · Arq. Martín López · Vence en 2 días</small>
                         </div>
-                        <button type="button" class="tarea-row__btn" onclick="this.textContent='Listo ✓'; this.disabled=true; showToast('Tarea marcada como lista.');">Marcar listo</button>
+                        <button type="button" class="tarea-row__btn" ${isDone('task-electrica') ? 'disabled' : ''} onclick="markTaskDone('task-electrica')">${isDone('task-electrica') ? 'Listo ✓' : 'Marcar listo'}</button>
                     </li>
                     <li class="tarea-row">
                         <span class="tarea-row__icon tarea-row__icon--com"><i class="far fa-comment-dots"></i></span>
@@ -995,13 +1134,13 @@ function openTareasDetail() {
                             <h5>Confirmar entrega de carpinterías</h5>
                             <small>Baja prioridad · Aberturas del Sur · Vence en 3 días</small>
                         </div>
-                        <button type="button" class="tarea-row__btn" onclick="this.textContent='Confirmado ✓'; this.disabled=true; showToast('Entrega confirmada.');">Confirmar</button>
+                        <button type="button" class="tarea-row__btn" ${isDone('task-carpinterias') ? 'disabled' : ''} onclick="markTaskDone('task-carpinterias')">${isDone('task-carpinterias') ? 'Confirmado ✓' : 'Confirmar'}</button>
                     </li>
                 </ul>
             </section>
 
             <section class="process-section">
-                <h4 class="process-section__title">En revisión (2)</h4>
+                <h4 class="process-section__title">En revisión</h4>
                 <ul class="tareas-list">
                     <li class="tarea-row" style="cursor: pointer;" onclick="openPlanViewer('doc-plano-4a-v1'); closeTareasDetail();">
                         <span class="tarea-row__icon" style="color: #8c8273; background: #f2efe9;"><i class="fas fa-clipboard-check"></i></span>
@@ -1013,8 +1152,8 @@ function openTareasDetail() {
                     </li>
                 </ul>
             </section>
-            
-            <button class="fab-btn" onclick="openUploadScreen(); closeTareasDetail();" style="position: absolute; bottom: 24px; right: 24px; background: var(--assistant-olive); color: var(--white); border: none; border-radius: 999px; padding: 12px 20px; font-size: 14px; font-weight: 700; box-shadow: 0 8px 16px rgba(79, 111, 82, 0.3); cursor: pointer; display: flex; align-items: center; gap: 8px; z-index: 10;">
+
+            <button class="fab-btn" onclick="closeTareasDetail(); openUploadScreen();" style="position: absolute; bottom: 24px; right: 24px; background: var(--assistant-olive); color: var(--white); border: none; border-radius: 999px; padding: 12px 20px; font-size: 14px; font-weight: 700; box-shadow: 0 8px 16px rgba(79, 111, 82, 0.3); cursor: pointer; display: flex; align-items: center; gap: 8px; z-index: 10;">
                 Cargar Archivos <i class="fas fa-plus"></i>
             </button>
         `;
@@ -1032,6 +1171,22 @@ function openTareasDetail() {
 function closeTareasDetail() {
     const aside = document.getElementById('tareas-detail');
     if (aside) aside.hidden = true;
+}
+
+function markTaskDone(taskId) {
+    if (!state.completedTaskIds.includes(taskId)) {
+        state.completedTaskIds.push(taskId);
+    }
+    persistData();
+    openTareasDetail();
+    showToast('Tarea actualizada.');
+}
+
+function openUploadForRemito(remitoId) {
+    const remito = state.remitos.find(r => r.id === remitoId);
+    if (!remito) return;
+    closeTareasDetail();
+    openUploadScreen({ typeId: 'remito', name: remito.name, remitoId });
 }
 
 function downloadPasaporte() {
@@ -1189,13 +1344,22 @@ function openNotification(notificationId) {
 
     state.focusThreadId = notification.context?.threadId || null;
 
+    if (notification.context?.tab === 'tareas') {
+        switchTab('home');
+        openTareasDetail();
+        return;
+    }
+
     if (notification.context?.tab === 'process') {
         switchTab('home');
         openProcessDetail();
         return;
     }
 
-    if (notification.context?.tab === 'plan') {
+    const ctxTab = notification.context?.tab;
+    const opensDocument = ctxTab === 'plan'
+        || (ctxTab === 'docs' && (notification.context?.documentId || notification.context?.threadId));
+    if (opensDocument) {
         let docId = notification.context.documentId;
         if (!docId && notification.context.threadId) {
             const thread = state.threads.find(item => item.id === notification.context.threadId);
@@ -1230,7 +1394,7 @@ function showToast(message) {
     }, 2200);
 }
 
-function createDocument({ typeId, name, observation, source, fileName }) {
+function createDocument({ typeId, name, observation, source, fileName, fileData, fileMime, silent }) {
     const docType = DOC_TYPES.find(item => item.id === typeId);
     if (!docType) return null;
 
@@ -1246,7 +1410,9 @@ function createDocument({ typeId, name, observation, source, fileName }) {
         final: false,
         uploadedBy: state.currentRole,
         source,
-        fileName,
+        fileName: fileName || null,
+        fileData: fileData || null,
+        fileMime: fileMime || null,
         createdAt: isoNow()
     };
 
@@ -1258,15 +1424,17 @@ function createDocument({ typeId, name, observation, source, fileName }) {
         text: `${roleLabel(state.currentRole)} cargó "${newDoc.name}" (${docType.label}).`
     });
 
-    const targets = ['developer', 'architect', 'owner'].filter(role => role !== state.currentRole);
-    addNotification({
-        type: 'document',
-        title: 'Documento nuevo',
-        message: `${docType.label}: "${newDoc.name}".`,
-        targets,
-        context: { tab: 'docs' },
-        projectId: state.currentProject
-    });
+    if (!silent) {
+        const targets = ['developer', 'architect', 'owner'].filter(role => role !== state.currentRole);
+        addNotification({
+            type: 'document',
+            title: 'Documento nuevo',
+            message: `${roleLabel(state.currentRole)} subió "${newDoc.name}" (${docType.label}). Tocá para verlo.`,
+            targets,
+            context: { tab: 'plan', documentId: newDoc.id },
+            projectId: state.currentProject
+        });
+    }
 
     return newDoc;
 }
@@ -1320,36 +1488,56 @@ function startUploadSimulation(source) {
 }
 
 function finishUpload() {
-    const slug = docsForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'documento';
-    const fileName = docsForm.source === 'camera'
-        ? `foto-${slug}-${Date.now()}.jpg`
-        : `${slug}.pdf`;
+    const file = docsForm.file;
+    const slug = (docsForm.name || 'documento').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'documento';
+    const fileName = file ? file.name : (docsForm.source === 'camera' ? `foto-${slug}.jpg` : `${slug}.pdf`);
+    const remitoId = docsForm.remitoId;
 
     const newDoc = createDocument({
         typeId: docsForm.typeId,
         name: docsForm.name,
         observation: docsForm.observation,
         source: docsForm.source,
-        fileName
+        fileName,
+        fileData: file ? file.dataUrl : null,
+        fileMime: file ? file.mime : null,
+        silent: Boolean(remitoId)
     });
+
+    if (newDoc && remitoId) {
+        const remito = state.remitos.find(r => r.id === remitoId);
+        if (remito) {
+            remito.status = 'cargado';
+            remito.documentId = newDoc.id;
+            addNotification({
+                type: 'remito',
+                title: 'Remito cargado',
+                message: `El equipo técnico cargó el remito "${remito.name}". Tocá para verlo.`,
+                targets: ['developer'],
+                context: { tab: 'plan', documentId: newDoc.id },
+                projectId: remito.projectId
+            });
+        }
+    }
 
     docsForm.typeId = '';
     docsForm.name = '';
     docsForm.observation = '';
     docsForm.source = null;
     docsForm.uploading = false;
+    docsForm.file = null;
+    docsForm.remitoId = null;
     docsForm.freshDocId = newDoc ? newDoc.id : null;
 
     closeUploadScreen();
     renderApp();
-    showToast('Documento subido.');
+    showToast(remitoId ? 'Remito cargado.' : 'Documento subido.');
 
     if (newDoc) {
         setTimeout(() => {
             if (docsForm.freshDocId === newDoc.id) {
                 docsForm.freshDocId = null;
-                renderDocs();
-                attachEventsInActiveTab();
+                renderApp();
             }
         }, 3000);
     }
@@ -1358,9 +1546,14 @@ function finishUpload() {
 function syncDocsFormButton() {
     const btn = document.getElementById('upload-form-cta');
     if (!btn) return;
-    const typeId = document.getElementById('upload-form-type')?.value || '';
-    const name = (document.getElementById('upload-form-name')?.value || '').trim();
-    btn.disabled = !typeId || !name;
+    btn.disabled = !(docsForm.typeId && docsForm.name && docsForm.file);
+}
+
+function formatFileSize(bytes) {
+    if (typeof bytes !== 'number') return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function submitDocComment(text) {
@@ -1395,7 +1588,7 @@ function submitDocComment(text) {
         title: 'Comentario nuevo',
         message: `${roleLabel(role)} en "${doc?.name || 'documento'}": "${text}"`,
         targets: otherRoles,
-        context: { tab: 'docs', threadId: thread.id, documentId: thread.documentId },
+        context: { tab: 'plan', threadId: thread.id, documentId: thread.documentId },
         projectId: state.currentProject
     });
 
@@ -1562,6 +1755,7 @@ function renderHome() {
     }).join('');
 
     if (role === 'developer') {
+        const remitoPend = state.remitos.filter(r => r.projectId === state.currentProject && r.status === 'pendiente').length;
         home.innerHTML = `
             <header class="owner-section-head">
                 <h4>Tareas pendientes</h4>
@@ -1570,7 +1764,7 @@ function renderHome() {
             <div class="dev-stats-grid">
                 <div class="dev-stat">
                     <span class="dev-stat__icon dev-stat__icon--remito"><i class="fas fa-file-arrow-up"></i></span>
-                    <span class="dev-stat__num">5</span>
+                    <span class="dev-stat__num">${remitoPend}</span>
                     <small>Remitos por solicitar</small>
                 </div>
                 <div class="dev-stat">
@@ -2099,6 +2293,32 @@ function formatDateFolderLabel(isoDate) {
 function renderUploadScreen() {
     if (!uploadScreen.open) return;
 
+    const file = docsForm.file;
+    const fileZone = file
+        ? `
+            <div class="upload-file upload-file--ready">
+                <span class="upload-file__icon"><i class="fas ${file.mime === 'application/pdf' ? 'fa-file-pdf' : 'fa-file-image'}"></i></span>
+                <div class="upload-file__info">
+                    <strong>${escapeHtml(file.name)}</strong>
+                    <small>${formatFileSize(file.size)} · listo para subir</small>
+                </div>
+                <button type="button" class="upload-file__remove" id="upload-file-remove" aria-label="Quitar archivo"><i class="fas fa-xmark"></i></button>
+            </div>
+        `
+        : `
+            <div class="upload-file upload-file--empty">
+                <span class="upload-file__icon"><i class="fas fa-paperclip"></i></span>
+                <div class="upload-file__info">
+                    <strong>Ningún archivo seleccionado</strong>
+                    <small>Adjuntá un PDF o una imagen</small>
+                </div>
+            </div>
+            <div class="upload-file__actions">
+                <button type="button" class="upload-file__btn" id="upload-pick-file"><i class="fas fa-folder-open"></i> Elegir archivo</button>
+                <button type="button" class="upload-file__btn" id="upload-pick-camera"><i class="fas fa-camera"></i> Tomar foto</button>
+            </div>
+        `;
+
     const formMarkup = docsForm.uploading
         ? `
             <div class="upload-progress">
@@ -2117,18 +2337,24 @@ function renderUploadScreen() {
                     <label for="upload-form-type">Tipo de documento</label>
                     <select id="upload-form-type">
                         <option value="">Elegí un tipo…</option>
-                        ${DOC_TYPES.map(type => `<option value="${type.id}">${escapeHtml(type.label)}</option>`).join('')}
+                        ${DOC_TYPES.map(type => `<option value="${type.id}" ${type.id === docsForm.typeId ? 'selected' : ''}>${escapeHtml(type.label)}</option>`).join('')}
                     </select>
                 </div>
                 <div class="docs-form__row">
                     <label for="upload-form-name">Nombre del documento</label>
-                    <input id="upload-form-name" type="text" placeholder="Ej. Permiso municipal junio">
+                    <input id="upload-form-name" type="text" placeholder="Ej. Permiso municipal junio" value="${escapeHtml(docsForm.name)}">
                 </div>
                 <div class="docs-form__row">
                     <label for="upload-form-obs">Observación (opcional)</label>
-                    <textarea id="upload-form-obs" placeholder="Notas, contexto, número de expediente…"></textarea>
+                    <textarea id="upload-form-obs" placeholder="Notas, contexto, número de expediente…">${escapeHtml(docsForm.observation)}</textarea>
                 </div>
-                <button type="button" class="docs-upload-btn" id="upload-form-cta" disabled>
+                <div class="docs-form__row">
+                    <label>Archivo</label>
+                    ${fileZone}
+                </div>
+                <input type="file" id="upload-file-input" accept="application/pdf,image/*" hidden>
+                <input type="file" id="upload-camera-input" accept="image/*" capture="environment" hidden>
+                <button type="button" class="docs-upload-btn" id="upload-form-cta" ${docsForm.typeId && docsForm.name && docsForm.file ? '' : 'disabled'}>
                     <i class="fas fa-cloud-arrow-up"></i> Subir archivo
                 </button>
             </div>
@@ -2137,7 +2363,7 @@ function renderUploadScreen() {
     uploadScreenBody.innerHTML = `
         <article class="section-card">
             <h3 class="section-title">Datos del documento</h3>
-            <p class="section-sub">Elegí el tipo, ponele un nombre y después seleccioná la fuente (cámara o archivo).</p>
+            <p class="section-sub">Elegí el tipo, ponele un nombre y adjuntá el archivo (PDF o foto).</p>
             ${formMarkup}
         </article>
     `;
@@ -2145,22 +2371,83 @@ function renderUploadScreen() {
     bindUploadScreenEvents();
 }
 
+function handleFileChosen(file, source) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        docsForm.file = {
+            name: file.name,
+            mime: file.type || (source === 'camera' ? 'image/jpeg' : 'application/octet-stream'),
+            size: file.size,
+            dataUrl: reader.result
+        };
+        docsForm.source = source;
+        if (!docsForm.name) {
+            docsForm.name = file.name.replace(/\.[^.]+$/, '');
+        }
+        renderUploadScreen();
+    };
+    reader.onerror = () => showToast('No se pudo leer el archivo.');
+    reader.readAsDataURL(file);
+}
+
+function runUpload() {
+    if (!docsForm.typeId || !docsForm.name || !docsForm.file) {
+        showToast('Elegí tipo, nombre y archivo antes de subir.');
+        return;
+    }
+    docsForm.uploading = true;
+    renderUploadScreen();
+
+    let pct = 0;
+    const step = () => {
+        pct = Math.min(100, pct + 20);
+        const barEl = document.getElementById('upload-bar-fill');
+        const pctEl = document.getElementById('upload-bar-pct');
+        if (barEl) barEl.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = pct + '%';
+        if (pct < 100) {
+            setTimeout(step, 170);
+        } else {
+            setTimeout(finishUpload, 220);
+        }
+    };
+    setTimeout(step, 170);
+}
+
 function bindUploadScreenEvents() {
     const typeSelect = document.getElementById('upload-form-type');
     const nameInput = document.getElementById('upload-form-name');
-    if (typeSelect) typeSelect.addEventListener('change', syncDocsFormButton);
-    if (nameInput) nameInput.addEventListener('input', syncDocsFormButton);
+    const obsInput = document.getElementById('upload-form-obs');
+    if (typeSelect) typeSelect.addEventListener('change', () => { docsForm.typeId = typeSelect.value; syncDocsFormButton(); });
+    if (nameInput) nameInput.addEventListener('input', () => { docsForm.name = nameInput.value.trim(); syncDocsFormButton(); });
+    if (obsInput) obsInput.addEventListener('input', () => { docsForm.observation = obsInput.value.trim(); });
+
+    const fileInput = document.getElementById('upload-file-input');
+    const cameraInput = document.getElementById('upload-camera-input');
+    const pickFileBtn = document.getElementById('upload-pick-file');
+    const pickCameraBtn = document.getElementById('upload-pick-camera');
+    if (pickFileBtn && fileInput) pickFileBtn.addEventListener('click', () => fileInput.click());
+    if (pickCameraBtn && cameraInput) pickCameraBtn.addEventListener('click', () => cameraInput.click());
+    if (fileInput) fileInput.addEventListener('change', () => handleFileChosen(fileInput.files[0], 'file'));
+    if (cameraInput) cameraInput.addEventListener('change', () => handleFileChosen(cameraInput.files[0], 'camera'));
+
+    const removeBtn = document.getElementById('upload-file-remove');
+    if (removeBtn) removeBtn.addEventListener('click', () => { docsForm.file = null; renderUploadScreen(); });
 
     const cta = document.getElementById('upload-form-cta');
-    if (cta) cta.addEventListener('click', openUploadPicker);
+    if (cta) cta.addEventListener('click', runUpload);
 }
 
-function openUploadScreen() {
+function openUploadScreen(prefill) {
     uploadScreen.open = true;
-    docsForm.typeId = '';
-    docsForm.name = '';
+    docsForm.typeId = prefill?.typeId || '';
+    docsForm.name = prefill?.name || '';
     docsForm.observation = '';
     docsForm.uploading = false;
+    docsForm.file = null;
+    docsForm.source = null;
+    docsForm.remitoId = prefill?.remitoId || null;
     uploadScreenEl.hidden = false;
     chatBubble.classList.add('hidden');
     renderUploadScreen();
@@ -2187,6 +2474,7 @@ function renderPlanViewer() {
     const hasRedline = thread.redlineVisible;
     const draft = planViewer.draft;
     const isPlan = doc.folder === 'Planos' || doc.typeId === 'plano';
+    const hasFile = Boolean(doc.fileData);
 
     planViewerKicker.textContent = docTypeLabel(doc);
     planViewerTitle.textContent = doc.name;
@@ -2216,18 +2504,18 @@ function renderPlanViewer() {
         </div>
     ` : '';
 
-    const developerActions = (isPlan && role === 'developer') ? `
-        <div class="inline-actions">
-            <button class="btn-small action" id="developer-mention-cta" ${state.ownerCommentDone && !state.mentionDone ? '' : 'disabled'}>Consultar al equipo técnico</button>
-            <button class="btn-small olive" id="developer-budget-cta" ${state.mentionDone && !state.budgetRequested ? '' : 'disabled'}>Pedir presupuesto</button>
-        </div>
-    ` : '';
+    const devButtons = [
+        (state.ownerCommentDone && !state.mentionDone)
+            ? '<button class="btn-small action" id="developer-mention-cta">Consultar al equipo técnico</button>' : '',
+        (state.mentionDone && !state.budgetRequested)
+            ? '<button class="btn-small olive" id="developer-budget-cta">Pedir presupuesto</button>' : ''
+    ].join('');
+    const developerActions = (isPlan && role === 'developer' && devButtons)
+        ? `<div class="inline-actions">${devButtons}</div>` : '';
 
-    const architectActions = (isPlan && role === 'architect') ? `
-        <div class="inline-actions">
-            <button class="btn-small action" id="architect-reply-cta" ${state.ownerCommentDone && !state.techResponseDone ? '' : 'disabled'}>Responder</button>
-        </div>
-    ` : '';
+    const architectActions = (isPlan && role === 'architect' && state.ownerCommentDone && !state.techResponseDone)
+        ? '<div class="inline-actions"><button class="btn-small action" id="architect-reply-cta">Marcar observación en el plano</button></div>'
+        : '';
 
     const planPreview = `
         <div id="blueprint-area" class="plan-shell">
@@ -2250,21 +2538,103 @@ function renderPlanViewer() {
         </div>
     `;
 
-    planViewerBody.innerHTML = `
-        <article class="section-card">
-            ${isPlan ? planPreview : docPreview}
-            ${helpTip}
-            ${composer}
-            ${developerActions}
-            ${architectActions}
-        </article>
-        <article class="section-card">
-            <h3 class="section-title">Conversación</h3>
-            <div class="comment-thread">${commentsMarkup}</div>
-        </article>
+    // Caja de respuesta disponible para los tres roles (desarrolladora, equipo técnico y propietario).
+    const replyComposer = `
+        <div class="plan-simple-composer">
+            <textarea id="plan-simple-input" placeholder="Escribí tu respuesta o comentario…"></textarea>
+            <button type="button" class="btn-small action" id="plan-simple-send">
+                <i class="fas fa-reply"></i> Responder
+            </button>
+        </div>
     `;
 
+    if (hasFile) {
+        planViewerBody.innerHTML = `
+            <article class="section-card">
+                ${fileViewerMarkup(doc)}
+                <div class="file-viewer__actions">
+                    <button type="button" class="btn-small action" id="plan-file-download"><i class="fas fa-download"></i> Descargar archivo</button>
+                </div>
+                ${doc.observation ? `<p class="doc-shell__obs">${escapeHtml(doc.observation)}</p>` : ''}
+                ${developerActions}
+                ${architectActions}
+            </article>
+            <article class="section-card">
+                <h3 class="section-title">Conversación</h3>
+                <div class="comment-thread">${commentsMarkup}</div>
+                ${replyComposer}
+            </article>
+        `;
+    } else {
+        planViewerBody.innerHTML = `
+            <article class="section-card">
+                ${isPlan ? planPreview : docPreview}
+                ${helpTip}
+                ${composer}
+                ${developerActions}
+                ${architectActions}
+            </article>
+            <article class="section-card">
+                <h3 class="section-title">Conversación</h3>
+                <div class="comment-thread">${commentsMarkup}</div>
+                ${replyComposer}
+            </article>
+        `;
+    }
+
     bindPlanViewerEvents();
+}
+
+function fileViewerMarkup(doc) {
+    const mime = doc.fileMime || '';
+    if (mime.startsWith('image/')) {
+        return `<div class="file-viewer"><img src="${doc.fileData}" alt="${escapeHtml(doc.name)}"></div>`;
+    }
+    if (mime === 'application/pdf') {
+        return `<div class="file-viewer file-viewer--pdf"><embed src="${doc.fileData}" type="application/pdf"></div>`;
+    }
+    return `
+        <div class="file-viewer file-viewer--generic">
+            <i class="fas fa-file"></i>
+            <p>${escapeHtml(doc.fileName || doc.name)}</p>
+        </div>
+    `;
+}
+
+function submitPlainComment(text) {
+    const docId = planViewer.documentId;
+    if (!docId || !text) return;
+    const thread = ensureThread(docId);
+    const doc = state.documents.find(item => item.id === docId);
+    const role = state.currentRole;
+
+    thread.comments.push({
+        id: `comment-${role}-${Date.now()}`,
+        authorRole: role,
+        text,
+        type: 'comment',
+        createdAt: isoNow()
+    });
+
+    pushVersionEvent(EVENT_TYPES.COMMENT_ADDED, {
+        actorRole: role,
+        documentId: docId,
+        text: `${roleLabel(role)} comentó en "${doc?.name || 'documento'}": "${text}"`
+    });
+
+    const otherRoles = ['developer', 'architect', 'owner'].filter(item => item !== role);
+    addNotification({
+        type: 'comment',
+        title: 'Comentario nuevo',
+        message: `${roleLabel(role)} comentó en "${doc?.name || 'documento'}".`,
+        targets: otherRoles,
+        context: { tab: 'plan', documentId: docId },
+        projectId: doc?.projectId || state.currentProject
+    });
+
+    renderApp();
+    renderPlanViewer();
+    showToast('Comentario enviado.');
 }
 
 function bindPlanViewerEvents() {
@@ -2333,6 +2703,27 @@ function bindPlanViewerEvents() {
 
     const archReplyCta = document.getElementById('architect-reply-cta');
     if (archReplyCta) archReplyCta.addEventListener('click', architectTechnicalReply);
+
+    const simpleSend = document.getElementById('plan-simple-send');
+    if (simpleSend) {
+        simpleSend.addEventListener('click', () => {
+            const input = document.getElementById('plan-simple-input');
+            const text = (input?.value || '').trim();
+            if (!text) {
+                input?.focus();
+                return;
+            }
+            submitPlainComment(text);
+        });
+    }
+
+    const fileDownload = document.getElementById('plan-file-download');
+    if (fileDownload) {
+        fileDownload.addEventListener('click', () => {
+            const doc = state.documents.find(item => item.id === planViewer.documentId);
+            if (doc) downloadDocument(doc);
+        });
+    }
 }
 
 function openPlanViewer(documentId) {
@@ -2952,11 +3343,25 @@ function renderApp() {
     if (uploadScreen.open) renderUploadScreen();
     if (chatState.open) renderChat();
 
+    persistData();
+    persistSession();
+
     window.obratyState = state;
 }
 
 function boot() {
     buildRoleSwitcher();
+
+    loadPersistedData();
+    loadPersistedSession();
+
+    // Sincroniza cambios hechos en otras pestañas (mismo navegador).
+    window.addEventListener('storage', (event) => {
+        if (event.key !== STORAGE_DATA_KEY || event.newValue == null) return;
+        if (applyData(event.newValue) && state.currentRole) {
+            renderApp();
+        }
+    });
 
     document.getElementById('btn-enter').addEventListener('click', () => showScreen(screenProfiles));
     document.getElementById('back-login').addEventListener('click', () => showScreen(screenLogin));
@@ -3077,6 +3482,7 @@ function boot() {
             state.currentProject = null;
             state.activeTab = 'home';
             state.projectSwitcherOpen = false;
+            persistSession();
             showScreen(screenLogin);
         } else if (action === 'add-property' || action === 'add-obra') {
             alert(action === 'add-property'
@@ -3111,36 +3517,46 @@ function boot() {
         } else if (action === 'download-pasaporte') {
             downloadPasaporte();
         } else if (action === 'notify-tech') {
-            const row = actionEl.closest('.tarea-row');
-            const name = row?.querySelector('h5')?.textContent.trim() || '';
-            const small = row?.querySelector('small')?.textContent.trim() || '';
-            const vendor = small.split(' · ')[0] || '';
-            const remitoId = `rem-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-            state.pendingRemitos.unshift({
-                id: remitoId,
-                projectId: state.currentProject,
-                name: `Remito ${name}`,
-                vendor,
-                date: 'Solicitado recién',
-                urgent: row?.classList.contains('tarea-row--urgent'),
-                requestedBy: 'developer'
-            });
-            state.notifiedDevRemitoIds.push(name);
-            addNotification({
-                type: 'remito',
-                title: 'Remito por cargar',
-                message: `La desarrolladora pidió cargar el remito de ${name}.`,
-                targets: ['architect'],
-                context: { tab: 'home' },
-                projectId: state.currentProject
-            });
-            showToast('Equipo técnico notificado.');
-            actionEl.disabled = true;
-            actionEl.textContent = 'Notificado ✓';
+            const remito = state.remitos.find(r => r.id === actionEl.dataset.remitoId);
+            if (remito && remito.status === 'pendiente') {
+                remito.status = 'solicitado';
+                addNotification({
+                    type: 'remito',
+                    title: 'Remito por cargar',
+                    message: `La desarrolladora necesita el remito "${remito.name}". Cargalo desde Tareas.`,
+                    targets: ['architect'],
+                    context: { tab: 'tareas' },
+                    projectId: remito.projectId
+                });
+                renderApp();
+                openTareasDetail();
+                showToast('Equipo técnico notificado.');
+            }
+        } else if (action === 'ver-remito') {
+            const docId = actionEl.dataset.docId;
+            if (docId) {
+                closeTareasDetail();
+                openPlanViewer(docId);
+            }
         }
     });
 
-    showScreen(screenLogin);
+    // Restaura la sesión: si la página se refresca, seguís donde estabas.
+    if (state.currentRole) {
+        roleSwitcher.value = state.currentRole;
+        if (state.currentRole === 'owner' && !state.currentProject) {
+            state.currentProject = 'patria';
+        }
+        if (!state.currentProject) {
+            renderProjectPicker();
+            showScreen(screenProjectPicker);
+        } else {
+            renderApp();
+            showScreen(screenApp);
+        }
+    } else {
+        showScreen(screenLogin);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', boot);

@@ -4988,3 +4988,179 @@ body {
     background: var(--assistant-olive-deep);
     transform: translateY(-2px);
 }
+
+/* ===== Adjuntar archivo (formulario de subida) ===== */
+.upload-file {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    border: 1px solid var(--line-gray);
+    border-radius: 12px;
+    padding: 11px 13px;
+    background: var(--surface-tint);
+}
+
+.upload-file--ready {
+    border-color: var(--assistant-olive);
+    background: var(--assistant-olive-soft);
+}
+
+.upload-file__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: var(--white);
+    color: var(--assistant-olive-deep);
+    font-size: 16px;
+}
+
+.upload-file__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.upload-file__info strong {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.upload-file__info small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.upload-file__remove {
+    border: 0;
+    background: var(--white);
+    color: var(--text-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.upload-file__remove:hover {
+    color: var(--action-terracotta-deep);
+}
+
+.upload-file__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.upload-file__btn {
+    flex: 1;
+    border: 1px solid var(--line-gray);
+    background: var(--white);
+    color: var(--text-dark);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.upload-file__btn:hover {
+    border-color: var(--assistant-olive);
+    background: var(--assistant-olive-soft);
+}
+
+/* ===== Visor de archivos reales ===== */
+.file-viewer {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line-gray);
+    background: var(--surface-tint);
+}
+
+.file-viewer img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+    object-fit: contain;
+    background: #f0ece2;
+}
+
+.file-viewer--pdf embed {
+    display: block;
+    width: 100%;
+    height: 420px;
+    border: 0;
+}
+
+.file-viewer--generic {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 36px 16px;
+    color: var(--text-muted);
+}
+
+.file-viewer--generic i {
+    font-size: 32px;
+    color: var(--assistant-olive);
+}
+
+.file-viewer__actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* ===== Composer de comentario simple ===== */
+.plan-simple-composer {
+    margin-top: 12px;
+    display: grid;
+    gap: 8px;
+}
+
+.plan-simple-composer textarea {
+    width: 100%;
+    border: 1px solid var(--line-gray);
+    background: var(--surface-tint);
+    border-radius: 11px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-dark);
+    resize: none;
+    min-height: 58px;
+    outline: none;
+}
+
+.plan-simple-composer textarea:focus {
+    border-color: var(--assistant-olive);
+    background: var(--white);
+}
+
+.plan-simple-composer .btn-small {
+    justify-self: end;
+}
+
+/* ===== Lista de tareas vacía ===== */
+.tarea-empty {
+    list-style: none;
+    padding: 14px;
+    border: 1px dashed var(--line-gray);
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+}
