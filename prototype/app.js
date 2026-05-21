@@ -818,7 +818,7 @@ function openTareasDetail() {
     const role = state.currentRole;
 
     if (role === 'developer') {
-        if (title) title.textContent = `${project.name} · Tareas pendientes`;
+        if (title) title.textContent = project.name;
 
         const remitos = [
             { name: 'Hormigón H30 — losa nivel 4', vendor: 'Hormigonera Sur', need: 'Pedido por jefe de obra', urgent: true },
@@ -1023,7 +1023,7 @@ function openTareasDetail() {
         if (header) header.classList.remove('is-architect');
         const kicker = aside.querySelector('.kicker');
         if (kicker) kicker.textContent = 'Tareas pendientes';
-        if (title) title.textContent = `${project.name} · Tareas pendientes`;
+        if (title) title.textContent = project.name;
     }
 
     aside.hidden = false;
