@@ -4579,17 +4579,27 @@ body {
 }
 
 .owner-section-link {
+    background: var(--assistant-olive);
+    color: var(--white);
+    border-radius: 999px;
+    padding: 6px 14px;
     font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
+    font-weight: 700;
     display: inline-flex;
     align-items: center;
     gap: 4px;
     cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s ease;
+}
+
+.owner-section-link:hover {
+    background: var(--assistant-olive-deep);
 }
 
 .owner-section-link i {
     font-size: 10px;
+    margin-left: 2px;
 }
 
 .update-card {

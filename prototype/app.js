@@ -857,8 +857,8 @@ function openTareasDetail() {
                 <h4 class="process-section__title">Remitos por solicitar</h4>
                 <ul class="tareas-list">
                     ${remitos.map(r => {
-                        const alreadyNotified = state.notifiedDevRemitoIds.includes(r.name);
-                        return `
+            const alreadyNotified = state.notifiedDevRemitoIds.includes(r.name);
+            return `
                         <li class="tarea-row ${r.urgent ? 'tarea-row--urgent' : ''}">
                             <span class="tarea-row__icon"><i class="fas fa-file-arrow-up"></i></span>
                             <div class="tarea-row__body">
@@ -868,7 +868,7 @@ function openTareasDetail() {
                             <button type="button" class="tarea-row__btn" data-action="notify-tech" ${alreadyNotified ? 'disabled' : ''}>${alreadyNotified ? 'Notificado ✓' : 'Notificar al equipo técnico'}</button>
                         </li>
                         `;
-                    }).join('')}
+        }).join('')}
                 </ul>
             </section>` : '';
 
@@ -2375,8 +2375,8 @@ function renderNotifications() {
             <p class="section-sub">Tocá un comunicado para abrir el detalle.</p>
             <div class="notif-list">
                 ${visible.map(item => {
-                    const isUnread = !item.readBy.includes(role);
-                    return `
+        const isUnread = !item.readBy.includes(role);
+        return `
                         <div class="notif-item ${isUnread ? 'unread' : ''}">
                             <div class="notif-top">
                                 <h4>${escapeHtml(item.title)}</h4>
@@ -2389,7 +2389,7 @@ function renderNotifications() {
                             </div>
                         </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </article>
     `;
@@ -2636,7 +2636,7 @@ function chatMessagesForRole() {
         if (!state.ownerCommentDone) {
             messages.push({ from: 'bot', text: 'Por ahora no hay pedidos de cambio. Te aviso cuando aparezca alguno.' });
         } else if (state.ownerCommentDone && !state.mentionDone) {
-            messages.push({ from: 'bot', text: 'El propietario pidió un cambio en la cocina. ¿Querés que consulte al equipo técnico?' , action: { fn: 'mention', label: 'Consultar al equipo técnico' } });
+            messages.push({ from: 'bot', text: 'El propietario pidió un cambio en la cocina. ¿Querés que consulte al equipo técnico?', action: { fn: 'mention', label: 'Consultar al equipo técnico' } });
         } else if (state.mentionDone && !state.techResponseDone) {
             messages.push({ from: 'bot', text: 'Ya consulté al equipo técnico. Te aviso apenas responda.' });
         } else if (state.techResponseDone && !state.budgetRequested) {
