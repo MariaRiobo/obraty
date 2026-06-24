@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=44">
 </head>
 <body>
     <div id="app-shell">
@@ -18,7 +18,7 @@
                     <img src="obraty_logo.png?v=2" alt="obraty" class="hero-logo__img">
                 </div>
                 <div class="hero-copy">
-                    <h1>El ciclo de vida de tu propiedad, en un solo lugar.</h1>
+                    <h1>El ciclo de vida del inmueble en un solo lugar.</h1>
                 </div>
                 <button class="btn btn-primary" id="btn-enter">Ingresar</button>
                 <button class="btn btn-ghost" id="btn-signup">Crear cuenta</button>
@@ -114,9 +114,13 @@
                 <div class="obra-picker__search">
                     <i class="fas fa-magnifying-glass"></i>
                     <input type="search" placeholder="Buscar obra...">
-                    <button type="button" class="obra-picker__filter"><i class="fas fa-filter"></i> Filtrar</button>
+                    <div class="obra-picker__filter-wrap">
+                        <button type="button" class="obra-picker__filter" id="picker-filter-btn" aria-haspopup="menu" aria-expanded="false"><i class="fas fa-filter"></i> <span id="picker-filter-label">Filtrar</span></button>
+                        <div class="obra-picker__filter-menu" id="picker-filter-menu" hidden role="menu"></div>
+                    </div>
                 </div>
                 <div class="obra-picker__grid" id="project-picker-list"></div>
+                <p class="obra-picker__empty" id="picker-empty" hidden>No hay obras que coincidan con el filtro.</p>
             </section>
 
             <section id="screen-app" class="screen">
@@ -154,6 +158,7 @@
                     <section id="tab-library" class="tab-screen"></section>
                     <section id="tab-notifications" class="tab-screen"></section>
                     <section id="tab-history" class="tab-screen"></section>
+                    <section id="tab-profile" class="tab-screen"></section>
                 </main>
 
                 <div id="upload-picker" class="upload-picker" hidden role="dialog" aria-label="Origen del archivo">
@@ -204,6 +209,45 @@
                         </div>
                     </header>
                     <div id="history-detail-body" class="plan-viewer__body"></div>
+                </aside>
+
+                <aside id="passport-detail" class="plan-viewer" hidden aria-label="Pasaporte Digital">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="passport-detail-close" aria-label="Cerrar pasaporte">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker">Pasaporte Digital</p>
+                            <h2 id="passport-detail-title">Pasaporte de obra</h2>
+                        </div>
+                    </header>
+                    <div id="passport-detail-body" class="plan-viewer__body"></div>
+                </aside>
+
+                <aside id="milestone-detail" class="plan-viewer" hidden aria-label="Notificar hito de obra">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="milestone-detail-close" aria-label="Cerrar">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker">Hito de obra</p>
+                            <h2 id="milestone-detail-title">Notificar hito</h2>
+                        </div>
+                    </header>
+                    <div id="milestone-detail-body" class="plan-viewer__body"></div>
+                </aside>
+
+                <aside id="contact-detail" class="plan-viewer" hidden aria-label="Contacto humano">
+                    <header class="plan-viewer__header">
+                        <button class="icon-btn" id="contact-detail-close" aria-label="Cerrar contacto">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="title-block">
+                            <p class="kicker">Contacto humano</p>
+                            <h2 id="contact-detail-title">Contactar al equipo</h2>
+                        </div>
+                    </header>
+                    <div id="contact-detail-body" class="plan-viewer__body"></div>
                 </aside>
 
                 <aside id="tareas-detail" class="plan-viewer" hidden aria-label="Tareas pendientes">
@@ -276,7 +320,7 @@
                     </form>
                 </aside>
 
-                <nav class="tab-bar" aria-label="Navegación principal" data-tabs="4">
+                <nav class="tab-bar" aria-label="Navegación principal" data-tabs="5">
                     <button class="tab-item active" data-tab="home">
                         <i class="fas fa-house"></i>
                         <span>Inicio</span>
@@ -297,12 +341,16 @@
                         <i class="fas fa-clock-rotate-left" data-tab-icon="history"></i>
                         <span data-tab-label="history">Historial</span>
                     </button>
+                    <button class="tab-item" data-tab="profile">
+                        <i class="far fa-user" data-tab-icon="profile"></i>
+                        <span data-tab-label="profile">Mi perfil</span>
+                    </button>
                 </nav>
             </section>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="app.js?v=48"></script>
+    <script src="app.js?v=55"></script>
 </body>
 </html>

@@ -25,11 +25,19 @@ const DOC_TYPES = [
     { id: 'comprobante', label: 'Comprobante de pago', folder: 'Comprobantes' },
     { id: 'certificado', label: 'Certificado', folder: 'Certificados' },
     { id: 'acta', label: 'Acta de obra', folder: 'Actas' },
+    { id: 'foto-avance', label: 'Foto de avance', folder: 'Documentación de obra' },
+    { id: 'parte-diario', label: 'Parte diario de obra', folder: 'Documentación de obra' },
+    { id: 'registro-visita', label: 'Registro de visita de obra', folder: 'Documentación de obra' },
     { id: 'memoria', label: 'Memoria descriptiva', folder: 'Documentos técnicos' },
     { id: 'pliego', label: 'Pliego técnico', folder: 'Documentos técnicos' },
     { id: 'computo', label: 'Cómputo y presupuesto', folder: 'Presupuestos' },
     { id: 'contrato', label: 'Contrato', folder: 'Legales' },
     { id: 'seguro', label: 'Seguro / ART', folder: 'Legales' },
+    { id: 'final-obra', label: 'Final de obra', folder: 'Cierre y entrega' },
+    { id: 'acta-entrega', label: 'Acta de entrega', folder: 'Cierre y entrega' },
+    { id: 'conforme-obra', label: 'Plano conforme a obra (as-built)', folder: 'Cierre y entrega' },
+    { id: 'garantia', label: 'Garantía', folder: 'Cierre y entrega' },
+    { id: 'manual-uso', label: 'Manual de uso y mantenimiento', folder: 'Cierre y entrega' },
     { id: 'otro', label: 'Otro', folder: 'Otros' }
 ];
 
@@ -39,6 +47,43 @@ function docTypeLabel(doc) {
         if (found) return found.label;
     }
     return doc.folder || 'Documento';
+}
+
+// Sectores / niveles de obra para clasificar planos y documentación técnica
+const DOC_SECTORS = [
+    'General / Toda la obra',
+    'Subsuelo / Cocheras',
+    'Planta baja',
+    'Niveles 1 a 3',
+    'Niveles 4 a 6',
+    'Niveles 7 o más',
+    'Terraza / Azotea',
+    'Áreas comunes',
+    'Fachada / Exterior'
+];
+
+// Los planos, la documentación técnica y los planos conforme a obra se vinculan a un sector o nivel
+function typeNeedsSector(typeId) {
+    if (typeId === 'conforme-obra') return true;
+    const type = DOC_TYPES.find(item => item.id === typeId);
+    return Boolean(type && (type.folder === 'Planos' || type.folder === 'Documentos técnicos'));
+}
+
+// Mensaje que detalla qué campos faltan completar para habilitar la subida
+function uploadMissingMessage() {
+    const missing = [];
+    if (!docsForm.typeId) missing.push('el tipo de documento');
+    if (!docsForm.name) missing.push('el nombre');
+    if (!docsForm.file) missing.push('el archivo');
+    if (!missing.length) return '';
+    let list;
+    if (missing.length === 1) {
+        list = missing[0];
+    } else {
+        list = missing.slice(0, -1).join(', ') + ' y ' + missing[missing.length - 1];
+    }
+    const verb = missing.length === 1 ? 'Falta' : 'Faltan';
+    return `${verb} ${list} para poder subir.`;
 }
 
 const ROLES = {
@@ -64,13 +109,15 @@ const TAB_TITLES = {
     docs: 'Mis archivos',
     library: 'Documentos del proyecto',
     notifications: 'Alertas',
-    history: 'Historial'
+    history: 'Historial',
+    profile: 'Mi perfil'
 };
 
 function tabTitleFor(tabId) {
     if (tabId === 'library') return 'Documentos';
     if (tabId === 'notifications') return 'Comunicados';
-    if (tabId === 'history') return 'Mi perfil';
+    if (tabId === 'history') return 'Historial';
+    if (tabId === 'profile') return 'Mi perfil';
     return TAB_TITLES[tabId] || '';
 }
 
@@ -185,6 +232,8 @@ const state = {
     libraryFilter: 'all',
     librarySearch: '',
     libraryView: 'list',
+    documentMenuOpen: null,
+    historyFilter: 'all',
     tareasFilter: 'all',
     remitos: seedRemitos(),
     completedTaskIds: [],
@@ -326,6 +375,7 @@ const state = {
             name: 'Plano Unidad 4A',
             typeId: 'plano',
             folder: 'Planos',
+            sector: 'Niveles 4 a 6',
             observation: 'Layout original entregado en obra.',
             version: 1,
             readOnly: true,
@@ -352,6 +402,7 @@ const state = {
             name: 'Plano Unidad 4A — Modificaciones cliente',
             typeId: 'plano',
             folder: 'Planos',
+            sector: 'Niveles 4 a 6',
             observation: 'Pedido del cliente: ampliar cocina.',
             version: 3,
             readOnly: false,
@@ -365,6 +416,7 @@ const state = {
             name: 'Informe de avance de obra',
             typeId: 'memoria',
             folder: 'Documentos técnicos',
+            sector: 'General / Toda la obra',
             observation: '',
             version: 1,
             readOnly: true,
@@ -404,6 +456,7 @@ const state = {
             name: 'Plano de estructura',
             typeId: 'plano',
             folder: 'Planos',
+            sector: 'General / Toda la obra',
             observation: 'Plano estructural general del edificio.',
             version: 1,
             readOnly: true,
@@ -448,6 +501,32 @@ const state = {
             readOnly: true,
             final: true,
             uploadedBy: 'developer',
+            createdAt: isoNow()
+        },
+        {
+            id: 'doc-final-obra',
+            projectId: 'olivares',
+            name: 'Certificado de final de obra',
+            typeId: 'final-obra',
+            folder: 'Cierre y entrega',
+            observation: 'Final de obra otorgado por el municipio.',
+            version: 1,
+            readOnly: true,
+            final: true,
+            uploadedBy: 'developer',
+            createdAt: isoNow()
+        },
+        {
+            id: 'doc-manual-uso',
+            projectId: 'olivares',
+            name: 'Manual de uso y mantenimiento',
+            typeId: 'manual-uso',
+            folder: 'Cierre y entrega',
+            observation: 'Guía de uso y mantenimiento para los propietarios.',
+            version: 1,
+            readOnly: true,
+            final: true,
+            uploadedBy: 'architect',
             createdAt: isoNow()
         }
     ],
@@ -545,11 +624,13 @@ const docsForm = {
     typeId: '',
     name: '',
     observation: '',
+    sector: '',
     source: null,
     uploading: false,
     freshDocId: null,
     file: null,
-    remitoId: null
+    remitoId: null,
+    versionOfDocId: null
 };
 
 function ensureThread(documentId) {
@@ -672,11 +753,14 @@ function showScreen(target) {
     target.classList.add('active');
 }
 
+// Filtro activo en la pantalla de selección de obra
+let pickerFilter = 'all';
+
 function renderProjectPicker() {
     const list = document.getElementById('project-picker-list');
     if (!list) return;
     const cards = state.projects.map((p, i) => `
-        <button type="button" class="obra-card" data-project-id="${p.id}">
+        <button type="button" class="obra-card" data-project-id="${p.id}" data-etapa="${escapeHtml(p.etapa)}" data-pending="${p.pendingActions}">
             <span class="obra-card__media obra-card__media--${i % 3}">
                 <span class="obra-card__pct">${p.progress}%</span>
             </span>
@@ -702,6 +786,78 @@ function renderProjectPicker() {
     list.querySelectorAll('[data-project-id]').forEach(btn => {
         btn.addEventListener('click', () => selectProject(btn.dataset.projectId));
     });
+
+    renderPickerFilterMenu();
+    applyPickerFilters();
+}
+
+function renderPickerFilterMenu() {
+    const menu = document.getElementById('picker-filter-menu');
+    if (!menu) return;
+    // Etapas presentes en las obras, en orden de avance de obra
+    const etapaOrder = ['Planificación', 'Estructura', 'Instalaciones', 'Terminaciones', 'Cierre y entrega'];
+    const present = [...new Set(state.projects.map(p => p.etapa))];
+    const etapas = present.sort((a, b) => {
+        const ia = etapaOrder.indexOf(a), ib = etapaOrder.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    const option = (value, label, icon) => `
+        <button type="button" class="obra-picker__filter-opt ${pickerFilter === value ? 'is-active' : ''}" data-picker-filter="${escapeHtml(value)}" role="menuitemradio" aria-checked="${pickerFilter === value}">
+            <i class="fas ${icon}"></i><span>${escapeHtml(label)}</span>
+            ${pickerFilter === value ? '<i class="fas fa-check obra-picker__filter-check"></i>' : ''}
+        </button>
+    `;
+    menu.innerHTML = `
+        <p class="obra-picker__filter-group">Por etapa</p>
+        ${option('all', 'Todas las obras', 'fa-layer-group')}
+        ${etapas.map(e => option(e, e, 'fa-helmet-safety')).join('')}
+        <p class="obra-picker__filter-group">Por estado</p>
+        ${option('pendientes', 'Con pendientes', 'fa-circle-exclamation')}
+    `;
+    menu.querySelectorAll('[data-picker-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            pickerFilter = btn.dataset.pickerFilter;
+            closePickerFilterMenu();
+            renderPickerFilterMenu();
+            applyPickerFilters();
+        });
+    });
+}
+
+function applyPickerFilters() {
+    const searchEl = document.querySelector('#screen-project-picker .obra-picker__search input');
+    const q = (searchEl?.value || '').trim().toLowerCase();
+    const cards = document.querySelectorAll('#project-picker-list .obra-card[data-project-id]');
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const name = card.querySelector('.obra-card__name')?.textContent.toLowerCase() || '';
+        const loc = card.querySelector('.obra-card__loc')?.textContent.toLowerCase() || '';
+        const etapa = card.dataset.etapa || '';
+        const pending = Number(card.dataset.pending || '0');
+        const matchSearch = !q || name.includes(q) || loc.includes(q);
+        let matchFilter = true;
+        if (pickerFilter === 'pendientes') matchFilter = pending > 0;
+        else if (pickerFilter !== 'all') matchFilter = etapa === pickerFilter;
+        const show = matchSearch && matchFilter;
+        card.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+    const emptyEl = document.getElementById('picker-empty');
+    if (emptyEl) emptyEl.hidden = visibleCount > 0;
+    const labelEl = document.getElementById('picker-filter-label');
+    const btn = document.getElementById('picker-filter-btn');
+    const labelText = pickerFilter === 'all' ? 'Filtrar'
+        : pickerFilter === 'pendientes' ? 'Con pendientes'
+        : pickerFilter;
+    if (labelEl) labelEl.textContent = labelText;
+    if (btn) btn.classList.toggle('is-active', pickerFilter !== 'all');
+}
+
+function closePickerFilterMenu() {
+    const menu = document.getElementById('picker-filter-menu');
+    const btn = document.getElementById('picker-filter-btn');
+    if (menu) menu.hidden = true;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
 }
 
 function selectProject(projectId) {
@@ -715,7 +871,7 @@ function selectProject(projectId) {
 
 function renderProjectSwitcher() {
     const wrap = document.getElementById('project-switcher');
-    if (wrap) wrap.hidden = state.currentRole === 'owner';
+    if (wrap) wrap.hidden = !state.currentRole;
     const nameEl = document.getElementById('project-switcher-name');
     const menu = document.getElementById('project-switcher-menu');
     const btn = document.getElementById('project-switcher-btn');
@@ -842,6 +998,105 @@ function closeProcessDetail() {
     if (aside) aside.hidden = true;
 }
 
+function eventKind(type) {
+    if (type === EVENT_TYPES.UPLOAD_CREATED) return 'document';
+    if (type === EVENT_TYPES.COMMENT_ADDED || type === EVENT_TYPES.TECH_REPLY_ADDED) return 'comment';
+    if (type === EVENT_TYPES.NOTIFICATION_SENT) return 'notification';
+    return 'milestone';
+}
+
+function eventIcon(kind) {
+    if (kind === 'document') return 'fa-file-lines';
+    if (kind === 'comment') return 'fa-message';
+    if (kind === 'notification') return 'fa-bullhorn';
+    if (kind === 'signature') return 'fa-pen-to-square';
+    if (kind === 'remito') return 'fa-file-arrow-up';
+    return 'fa-flag';
+}
+
+function eventKindLabel(kind) {
+    if (kind === 'document') return 'Documento';
+    if (kind === 'comment') return 'Comentario';
+    if (kind === 'notification') return 'Comunicado';
+    if (kind === 'signature') return 'Firma';
+    if (kind === 'remito') return 'Remito';
+    return 'Hito';
+}
+
+function timelineEventsForProject(projectId = state.currentProject) {
+    const project = state.projects.find(item => item.id === projectId);
+    const firstPlan = state.documents.find(item => item.projectId === projectId && item.folder === 'Planos');
+    const legalDoc = state.documents.find(item => item.projectId === projectId && item.folder === 'Legales');
+
+    const seeded = [
+        {
+            id: `seed-${projectId}-mamposteria`,
+            kind: 'milestone',
+            title: 'Mampostería completada',
+            text: 'Se terminó la mampostería del 2do piso.',
+            actorRole: 'developer',
+            when: 'Hace 1 hora',
+            action: 'open-process'
+        },
+        {
+            id: `seed-${projectId}-plano`,
+            kind: 'document',
+            title: 'Plano actualizado',
+            text: 'Se subió la última versión del plano eléctrico.',
+            actorRole: 'architect',
+            when: 'Hace 3 horas',
+            documentId: firstPlan?.id || 'doc-plano-4a-v1'
+        },
+        {
+            id: `seed-${projectId}-remito`,
+            kind: 'remito',
+            title: 'Remito cargado',
+            text: 'Se registró un nuevo remito de hormigón.',
+            actorRole: 'architect',
+            when: 'Hace 5 horas',
+            action: 'goto-docs'
+        },
+        {
+            id: `seed-${projectId}-firma`,
+            kind: 'signature',
+            title: 'Documento firmado',
+            text: 'Acta de inicio firmada por el cliente.',
+            actorRole: 'owner',
+            when: 'Ayer',
+            documentId: legalDoc?.id,
+            action: legalDoc ? null : 'goto-docs'
+        },
+        {
+            id: `seed-${projectId}-instalaciones`,
+            kind: 'milestone',
+            title: 'Nueva etapa',
+            text: `Comenzó la etapa de ${project?.etapa || 'obra'}.`,
+            actorRole: 'architect',
+            when: 'Hace 3 días',
+            action: 'open-process'
+        }
+    ];
+
+    const live = state.versionHistory
+        .filter(row => row.projectId === projectId)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(row => {
+            const kind = eventKind(row.type);
+            return {
+                id: row.id,
+                kind,
+                title: EVENT_LABELS[row.type] || eventKindLabel(kind),
+                text: row.text,
+                actorRole: row.actorRole,
+                when: prettyDate(row.createdAt),
+                documentId: row.documentId,
+                action: kind === 'notification' ? 'goto-notifications' : null
+            };
+        });
+
+    return [...live, ...seeded];
+}
+
 function openHistoryDetail() {
     const aside = document.getElementById('history-detail');
     const body = document.getElementById('history-detail-body');
@@ -851,37 +1106,7 @@ function openHistoryDetail() {
 
     if (title) title.textContent = `${project.name} · Historial`;
 
-    const seeded = [
-        { type: 'milestone', text: 'Se terminó la mampostería del 2do piso.', actorRole: 'developer', when: 'Hace 1 hora' },
-        { type: 'document', text: 'Documento actualizado en Loft Palermo.', actorRole: 'architect', when: 'Hace 3 horas' },
-        { type: 'remito', text: 'Se cargó un nuevo remito de hormigón.', actorRole: 'developer', when: 'Hace 5 horas' },
-        { type: 'signature', text: 'Acta de inicio firmada por el cliente.', actorRole: 'owner', when: 'Ayer' },
-        { type: 'milestone', text: 'Comenzó la etapa de Instalaciones eléctricas.', actorRole: 'architect', when: 'Hace 3 días' },
-        { type: 'document', text: 'Plano de estructura aprobado por municipalidad.', actorRole: 'developer', when: 'Hace 5 días' },
-        { type: 'milestone', text: 'Hormigonado de losa nivel 3 completado.', actorRole: 'architect', when: 'Hace 1 semana' },
-        { type: 'document', text: 'Permiso de obra emitido.', actorRole: 'developer', when: 'Hace 2 semanas' },
-        { type: 'milestone', text: 'Demolición y nivelación finalizadas.', actorRole: 'developer', when: 'Hace 3 semanas' },
-        { type: 'document', text: 'Contrato con constructora firmado.', actorRole: 'developer', when: 'Hace 1 mes' }
-    ];
-
-    const live = state.versionHistory
-        .filter(row => row.projectId === state.currentProject)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .map(row => ({
-            type: row.type,
-            text: row.text,
-            actorRole: row.actorRole,
-            when: prettyDate(row.createdAt)
-        }));
-
-    const events = [...live, ...seeded];
-    const iconFor = (type) => {
-        if (type === 'milestone') return 'fa-flag';
-        if (type === 'document') return 'fa-file-lines';
-        if (type === 'signature') return 'fa-pen-to-square';
-        if (type === 'remito') return 'fa-file-arrow-up';
-        return 'fa-circle-info';
-    };
+    const events = timelineEventsForProject(project.id);
 
     body.innerHTML = `
         <section class="process-section">
@@ -897,7 +1122,7 @@ function openHistoryDetail() {
                     <li class="process-event">
                         <div class="process-event__dot"></div>
                         <div class="process-event__body">
-                            <h6><i class="fas ${iconFor(e.type)}"></i> ${EVENT_LABELS[e.type] || 'Evento'}</h6>
+                            <h6><i class="fas ${eventIcon(e.kind)}"></i> ${escapeHtml(e.title)}</h6>
                             <p>${escapeHtml(e.text)}</p>
                             <small>${roleLabel(e.actorRole)} · ${escapeHtml(e.when)}</small>
                         </div>
@@ -908,11 +1133,13 @@ function openHistoryDetail() {
     `;
 
     aside.hidden = false;
+    chatBubble.classList.add('hidden');
 }
 
 function closeHistoryDetail() {
     const aside = document.getElementById('history-detail');
     if (aside) aside.hidden = true;
+    if (!planViewer.open && !uploadScreen.open && !chatState.open) chatBubble.classList.remove('hidden');
 }
 
 function openTareasDetail() {
@@ -1270,11 +1497,349 @@ function downloadPasaporte() {
     showToast('Pasaporte descargado.');
 }
 
+function openPassportDetail() {
+    const aside = document.getElementById('passport-detail');
+    const body = document.getElementById('passport-detail-body');
+    const title = document.getElementById('passport-detail-title');
+    const project = activeProject();
+    if (!aside || !body || !project) return;
+
+    const docs = state.documents.filter(doc => doc.projectId === project.id);
+    const legalDocs = docs.filter(doc => ['Legales', 'Boletos', 'Comprobantes', 'Certificados'].includes(doc.folder));
+    const techDocs = docs.filter(doc => ['Planos', 'Documentos técnicos', 'Actas', 'Presupuestos'].includes(doc.folder));
+    const latestEvents = timelineEventsForProject(project.id).slice(0, 4);
+    const docsByFolder = docs.reduce((acc, doc) => {
+        acc[doc.folder] = (acc[doc.folder] || 0) + 1;
+        return acc;
+    }, {});
+
+    const milestoneMarkup = (project.milestones || []).map(item => {
+        const status = item.status === 'done' ? 'Completado' : item.status === 'in_progress' ? 'En curso' : 'Pendiente';
+        const badgeClass = item.status === 'done' ? 'badge-success' : item.status === 'in_progress' ? 'badge-action' : 'badge-neutral';
+        return `
+            <li class="passport-milestone">
+                <span class="passport-milestone__dot"></span>
+                <span class="passport-milestone__body">
+                    <strong>${escapeHtml(item.text)}</strong>
+                    <small class="badge ${badgeClass}">${status}</small>
+                </span>
+            </li>
+        `;
+    }).join('');
+
+    const docFolderMarkup = Object.keys(docsByFolder).length
+        ? Object.entries(docsByFolder).map(([folder, count]) => `
+            <button type="button" class="passport-folder" data-action="goto-docs">
+                <span><i class="fas fa-folder"></i> ${escapeHtml(folder)}</span>
+                <strong>${count}</strong>
+            </button>
+        `).join('')
+        : '<p class="section-sub">Todavía no hay documentación cargada para esta obra.</p>';
+
+    const docPreview = (items) => items.slice(0, 3).map(doc => `
+        <button type="button" class="passport-doc" data-open-plan="${doc.id}">
+            <span class="passport-doc__icon"><i class="fas ${doc.folder === 'Planos' ? 'fa-drafting-compass' : 'fa-file-lines'}"></i></span>
+            <span class="passport-doc__body">
+                <strong>${escapeHtml(doc.name)}</strong>
+                <small>${escapeHtml(doc.folder)} · v${doc.version || 1}</small>
+            </span>
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    `).join('');
+
+    if (title) title.textContent = project.name;
+
+    body.innerHTML = `
+        <section class="passport-hero">
+            <div class="passport-hero__media"></div>
+            <div class="passport-hero__body">
+                <p class="passport-hero__kicker">Pasaporte Digital</p>
+                <h3>${escapeHtml(project.name)}</h3>
+                <p>${escapeHtml(project.location)} · ${escapeHtml(project.ownerUnit || project.etapa)}</p>
+                <div class="passport-progress">
+                    <span>${project.progress}%</span>
+                    <div class="progress-track"><div class="progress-fill" style="width:${project.progress}%"></div></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="passport-stats">
+            <div class="passport-stat">
+                <strong>${docs.length}</strong>
+                <small>documentos</small>
+            </div>
+            <div class="passport-stat">
+                <strong>${project.pendingActions || 0}</strong>
+                <small>pendientes</small>
+            </div>
+            <div class="passport-stat">
+                <strong>${(project.milestones || []).length}</strong>
+                <small>hitos</small>
+            </div>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Documentación por carpeta</h4>
+            <div class="passport-folder-grid">${docFolderMarkup}</div>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Documentos técnicos</h4>
+            <div class="passport-doc-list">${docPreview(techDocs) || '<p class="section-sub">No hay documentos técnicos cargados.</p>'}</div>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Documentos legales</h4>
+            <div class="passport-doc-list">${docPreview(legalDocs) || '<p class="section-sub">No hay documentos legales cargados.</p>'}</div>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Hitos de obra</h4>
+            <ul class="passport-milestone-list">${milestoneMarkup || '<li class="process-empty">Sin hitos cargados.</li>'}</ul>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Actividad reciente</h4>
+            <div class="passport-event-list">
+                ${latestEvents.map(event => `
+                    <button type="button" class="passport-event" ${event.documentId ? `data-open-plan="${event.documentId}"` : `data-action="${event.action || 'goto-history'}"`}>
+                        <span class="passport-event__icon"><i class="fas ${eventIcon(event.kind)}"></i></span>
+                        <span class="passport-event__body">
+                            <strong>${escapeHtml(event.title)}</strong>
+                            <small>${escapeHtml(event.text)}</small>
+                        </span>
+                        <span>${escapeHtml(event.when)}</span>
+                    </button>
+                `).join('')}
+            </div>
+        </section>
+
+        <div class="passport-actions">
+            <button type="button" class="btn btn-primary" data-action="download-pasaporte">
+                <i class="fas fa-file-arrow-down"></i> Exportar PDF
+            </button>
+            <button type="button" class="btn btn-ghost" data-action="goto-history">
+                <i class="fas fa-clock-rotate-left"></i> Ver historial
+            </button>
+        </div>
+    `;
+
+    aside.hidden = false;
+    chatBubble.classList.add('hidden');
+    attachEventsInActiveTab();
+}
+
+function closePassportDetail() {
+    const aside = document.getElementById('passport-detail');
+    if (aside) aside.hidden = true;
+    if (!planViewer.open && !uploadScreen.open && !chatState.open) chatBubble.classList.remove('hidden');
+}
+
+function contactTargetsForRole(role) {
+    // Propietarios de las distintas unidades de la obra.
+    const owners = [
+        { role: 'owner', title: 'Propietario · Unidad 4A', name: 'Liliana González', detail: 'Unidad 4A · Piso 4', icon: 'fa-key' },
+        { role: 'owner', title: 'Propietario · Unidad 6B', name: 'Roberto Méndez', detail: 'Unidad 6B · Piso 6', icon: 'fa-key' },
+        { role: 'owner', title: 'Propietario · Unidad 8C', name: 'Familia Torres', detail: 'Unidad 8C · Piso 8', icon: 'fa-key' }
+    ];
+    const developerContact = { role: 'developer', title: 'Desarrolladora', name: 'Citra Desarrollos', detail: 'Coordinación y aprobaciones', icon: 'fa-building' };
+    const architectContact = { role: 'architect', title: 'Equipo técnico', name: 'Arq. Martina López', detail: 'Obra y documentación técnica', icon: 'fa-helmet-safety' };
+
+    if (role === 'owner') {
+        // El propietario contacta a la desarrolladora y al equipo técnico.
+        return [developerContact, architectContact];
+    }
+    if (role === 'architect') {
+        // El equipo técnico contacta a la desarrolladora y a los distintos propietarios.
+        return [developerContact, ...owners];
+    }
+    // La desarrolladora contacta al equipo técnico y a los distintos propietarios.
+    return [architectContact, ...owners];
+}
+
+function openContactDetail() {
+    const aside = document.getElementById('contact-detail');
+    const body = document.getElementById('contact-detail-body');
+    const title = document.getElementById('contact-detail-title');
+    const project = activeProject();
+    if (!aside || !body || !project) return;
+
+    if (title) title.textContent = project.name;
+    const targets = contactTargetsForRole(state.currentRole);
+
+    body.innerHTML = `
+        <section class="contact-hero">
+            <span class="contact-hero__icon"><i class="fas fa-headset"></i></span>
+            <div>
+                <h3>Canal humano</h3>
+                <p>Contactá a una persona responsable de la obra sin pasar por ObraChat.</p>
+            </div>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Contactos disponibles</h4>
+            <div class="contact-list">
+                ${targets.map(target => `
+                    <article class="contact-row">
+                        <span class="contact-row__icon"><i class="fas ${target.icon}"></i></span>
+                        <span class="contact-row__body">
+                            <strong>${escapeHtml(target.title)}</strong>
+                            <small>${escapeHtml(target.name)} · ${escapeHtml(target.detail)}</small>
+                        </span>
+                        <span class="contact-row__actions">
+                            <button type="button" aria-label="Enviar mensaje" data-action="send-contact" data-contact-role="${target.role}">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                            <button type="button" aria-label="Llamar" data-action="call-contact" data-contact-role="${target.role}">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                        </span>
+                    </article>
+                `).join('')}
+            </div>
+        </section>
+
+        <section class="process-section">
+            <h4 class="process-section__title">Mensaje rápido</h4>
+            <div class="contact-composer">
+                <textarea id="contact-message" placeholder="Escribí el motivo del contacto…"></textarea>
+                <button type="button" class="btn-small action" data-action="send-contact" data-contact-role="${targets[0]?.role || 'developer'}">
+                    <i class="fas fa-paper-plane"></i> Enviar mensaje
+                </button>
+            </div>
+        </section>
+    `;
+
+    aside.hidden = false;
+    chatBubble.classList.add('hidden');
+}
+
+function closeContactDetail() {
+    const aside = document.getElementById('contact-detail');
+    if (aside) aside.hidden = true;
+    if (!planViewer.open && !uploadScreen.open && !chatState.open) chatBubble.classList.remove('hidden');
+}
+
+function openMilestoneDetail() {
+    const aside = document.getElementById('milestone-detail');
+    const body = document.getElementById('milestone-detail-body');
+    const title = document.getElementById('milestone-detail-title');
+    const project = activeProject();
+    if (!aside || !body || !project) return;
+
+    if (title) title.textContent = project.name;
+    const options = (project.milestones || [])
+        .map(m => {
+            const tag = m.status === 'done' ? ' (completado)' : m.status === 'in_progress' ? ' (en curso)' : ' (próximo)';
+            return `<option value="${escapeHtml(m.text)}">${escapeHtml(m.text)}${tag}</option>`;
+        })
+        .join('');
+
+    body.innerHTML = `
+        <section class="contact-hero">
+            <span class="contact-hero__icon"><i class="fas fa-flag-checkered"></i></span>
+            <div>
+                <h3>Notificá un hito</h3>
+                <p>Avisá a la desarrolladora cuando se complete una etapa o haya un avance relevante en la obra.</p>
+            </div>
+        </section>
+
+        <section class="process-section">
+            <div class="docs-form">
+                <div class="docs-form__row">
+                    <label for="milestone-select">Hito o avance</label>
+                    <select id="milestone-select">
+                        ${options}
+                        <option value="__custom__">Otro avance…</option>
+                    </select>
+                </div>
+                <div class="docs-form__row" id="milestone-custom-row" hidden>
+                    <label for="milestone-custom">Describí el avance</label>
+                    <input id="milestone-custom" type="text" placeholder="Ej. Finalización de losa nivel 5">
+                </div>
+                <div class="docs-form__row">
+                    <label for="milestone-note">Nota para la desarrolladora (opcional)</label>
+                    <textarea id="milestone-note" placeholder="Detalles, fecha, próximos pasos…"></textarea>
+                </div>
+                <button type="button" class="docs-upload-btn" id="milestone-send">
+                    <i class="fas fa-paper-plane"></i> Notificar a la desarrolladora
+                </button>
+            </div>
+        </section>
+    `;
+
+    aside.hidden = false;
+    chatBubble.classList.add('hidden');
+
+    const sel = document.getElementById('milestone-select');
+    const customRow = document.getElementById('milestone-custom-row');
+    if (sel && customRow) {
+        sel.addEventListener('change', () => { customRow.hidden = sel.value !== '__custom__'; });
+    }
+    const sendBtn = document.getElementById('milestone-send');
+    if (sendBtn) sendBtn.addEventListener('click', sendMilestoneNotification);
+}
+
+function sendMilestoneNotification() {
+    const project = activeProject();
+    if (!project) return;
+    const sel = document.getElementById('milestone-select');
+    const custom = document.getElementById('milestone-custom');
+    const note = document.getElementById('milestone-note');
+    let milestone = sel?.value || '';
+    if (milestone === '__custom__') milestone = (custom?.value || '').trim();
+    if (!milestone) { showToast('Elegí o describí el hito.'); return; }
+    const extra = (note?.value || '').trim();
+
+    addNotification({
+        type: 'milestone',
+        title: 'Hito de obra alcanzado',
+        message: `${roleLabel(state.currentRole)} reportó un hito en ${project.name}: "${milestone}".${extra ? ' ' + extra : ''}`,
+        targets: ['developer'],
+        context: { tab: 'history' },
+        projectId: project.id
+    });
+    pushVersionEvent(EVENT_TYPES.NOTIFICATION_SENT, {
+        actorRole: state.currentRole,
+        projectId: project.id,
+        text: `${roleLabel(state.currentRole)} notificó el hito "${milestone}" a la desarrolladora.`
+    });
+
+    closeMilestoneDetail();
+    renderApp();
+    showToast('Hito notificado a la Desarrolladora.');
+}
+
+function closeMilestoneDetail() {
+    const aside = document.getElementById('milestone-detail');
+    if (aside) aside.hidden = true;
+    if (!planViewer.open && !uploadScreen.open && !chatState.open) chatBubble.classList.remove('hidden');
+}
+
+function sendHumanContact(targetRole) {
+    const project = activeProject();
+    if (!project || !targetRole) return;
+    const input = document.getElementById('contact-message');
+    const text = (input?.value || '').trim() || `Solicitud de contacto humano sobre ${project.name}.`;
+    addNotification({
+        type: 'contact',
+        title: 'Solicitud de contacto',
+        message: `${roleLabel(state.currentRole)} pidió contacto humano: ${text}`,
+        targets: [targetRole],
+        context: { tab: 'notifications' },
+        projectId: project.id
+    });
+    renderApp();
+    openContactDetail();
+    showToast('Mensaje enviado al contacto humano.');
+}
+
 function switchTab(tabId) {
     if (state.activeTab === 'library' && tabId !== 'library') {
         state.libraryFolder = null;
         state.libraryFilterOpen = false;
     }
+    state.documentMenuOpen = null;
     state.activeTab = tabId;
     tabButtons.forEach(button => button.classList.toggle('active', button.dataset.tab === tabId));
     tabScreens.forEach(screen => screen.classList.toggle('active', screen.id === `tab-${tabId}`));
@@ -1394,7 +1959,7 @@ function showToast(message) {
     }, 2200);
 }
 
-function createDocument({ typeId, name, observation, source, fileName, fileData, fileMime, silent }) {
+function createDocument({ typeId, name, observation, sector, source, fileName, fileData, fileMime, silent }) {
     const docType = DOC_TYPES.find(item => item.id === typeId);
     if (!docType) return null;
 
@@ -1405,6 +1970,7 @@ function createDocument({ typeId, name, observation, source, fileName, fileData,
         typeId,
         folder: docType.folder,
         observation: observation || '',
+        sector: typeNeedsSector(typeId) ? (sector || '') : '',
         version: 1,
         readOnly: false,
         final: false,
@@ -1437,6 +2003,71 @@ function createDocument({ typeId, name, observation, source, fileName, fileData,
     }
 
     return newDoc;
+}
+
+// Etiqueta legible de los participantes notificados (todos menos el rol actual)
+function notifiedRolesLabel() {
+    const labels = ['developer', 'architect', 'owner']
+        .filter(role => role !== state.currentRole)
+        .map(role => roleLabel(role));
+    if (labels.length === 2) return `${labels[0]} y ${labels[1]}`;
+    return labels.join(', ');
+}
+
+// Control de versiones real: sube una nueva versión de un documento existente
+function uploadNewVersion(docId, { fileName, fileData, fileMime, observation, source }) {
+    const doc = state.documents.find(item => item.id === docId);
+    if (!doc) return null;
+
+    const prevVersion = doc.version || 1;
+    // Guarda un snapshot de la versión anterior si todavía no existe el registro
+    if (!doc.versions || !doc.versions.length) {
+        doc.versions = [{
+            version: prevVersion,
+            fileName: doc.fileName,
+            observation: doc.observation,
+            uploadedBy: doc.uploadedBy,
+            createdAt: doc.createdAt
+        }];
+    }
+
+    doc.version = prevVersion + 1;
+    doc.fileName = fileName || doc.fileName;
+    if (fileData) {
+        doc.fileData = fileData;
+        doc.fileMime = fileMime;
+    }
+    doc.source = source || doc.source;
+    if (observation) doc.observation = observation;
+    doc.uploadedBy = state.currentRole;
+    doc.readOnly = false;
+    doc.createdAt = isoNow();
+    doc.versions.push({
+        version: doc.version,
+        fileName: doc.fileName,
+        observation: doc.observation,
+        uploadedBy: state.currentRole,
+        createdAt: doc.createdAt
+    });
+
+    pushVersionEvent(EVENT_TYPES.VERSION_EVENT_LOGGED, {
+        actorRole: state.currentRole,
+        documentId: doc.id,
+        projectId: doc.projectId,
+        text: `${roleLabel(state.currentRole)} subió la versión v${doc.version} de "${doc.name}".`
+    });
+
+    const targets = ['developer', 'architect', 'owner'].filter(role => role !== state.currentRole);
+    addNotification({
+        type: 'document',
+        title: 'Nueva versión de documento',
+        message: `${roleLabel(state.currentRole)} actualizó "${doc.name}" a la versión v${doc.version}. Tocá para verla.`,
+        targets,
+        context: { tab: 'plan', documentId: doc.id },
+        projectId: doc.projectId
+    });
+
+    return doc;
 }
 
 function openUploadPicker() {
@@ -1492,46 +2123,69 @@ function finishUpload() {
     const slug = (docsForm.name || 'documento').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'documento';
     const fileName = file ? file.name : (docsForm.source === 'camera' ? `foto-${slug}.jpg` : `${slug}.pdf`);
     const remitoId = docsForm.remitoId;
+    const versionOfDocId = docsForm.versionOfDocId;
 
-    const newDoc = createDocument({
-        typeId: docsForm.typeId,
-        name: docsForm.name,
-        observation: docsForm.observation,
-        source: docsForm.source,
-        fileName,
-        fileData: file ? file.dataUrl : null,
-        fileMime: file ? file.mime : null,
-        silent: Boolean(remitoId)
-    });
+    let newDoc = null;
+    const isVersion = Boolean(versionOfDocId);
 
-    if (newDoc && remitoId) {
-        const remito = state.remitos.find(r => r.id === remitoId);
-        if (remito) {
-            remito.status = 'cargado';
-            remito.documentId = newDoc.id;
-            addNotification({
-                type: 'remito',
-                title: 'Remito cargado',
-                message: `El equipo técnico cargó el remito "${remito.name}". Tocá para verlo.`,
-                targets: ['developer'],
-                context: { tab: 'plan', documentId: newDoc.id },
-                projectId: remito.projectId
-            });
+    if (isVersion) {
+        newDoc = uploadNewVersion(versionOfDocId, {
+            fileName,
+            fileData: file ? file.dataUrl : null,
+            fileMime: file ? file.mime : null,
+            observation: docsForm.observation,
+            source: docsForm.source
+        });
+    } else {
+        newDoc = createDocument({
+            typeId: docsForm.typeId,
+            name: docsForm.name,
+            observation: docsForm.observation,
+            sector: docsForm.sector,
+            source: docsForm.source,
+            fileName,
+            fileData: file ? file.dataUrl : null,
+            fileMime: file ? file.mime : null,
+            silent: Boolean(remitoId)
+        });
+
+        if (newDoc && remitoId) {
+            const remito = state.remitos.find(r => r.id === remitoId);
+            if (remito) {
+                remito.status = 'cargado';
+                remito.documentId = newDoc.id;
+                addNotification({
+                    type: 'remito',
+                    title: 'Remito cargado',
+                    message: `El equipo técnico cargó el remito "${remito.name}". Tocá para verlo.`,
+                    targets: ['developer'],
+                    context: { tab: 'plan', documentId: newDoc.id },
+                    projectId: remito.projectId
+                });
+            }
         }
     }
 
     docsForm.typeId = '';
     docsForm.name = '';
     docsForm.observation = '';
+    docsForm.sector = '';
     docsForm.source = null;
     docsForm.uploading = false;
     docsForm.file = null;
     docsForm.remitoId = null;
+    docsForm.versionOfDocId = null;
     docsForm.freshDocId = newDoc ? newDoc.id : null;
 
     closeUploadScreen();
     renderApp();
-    showToast(remitoId ? 'Remito cargado.' : 'Documento subido.');
+    if (remitoId) {
+        showToast('Remito cargado y notificado a la Desarrolladora.');
+    } else if (isVersion && newDoc) {
+        showToast(`Versión v${newDoc.version} subida. Avisamos a ${notifiedRolesLabel()}.`);
+    } else {
+        showToast(`Documento subido. Avisamos a ${notifiedRolesLabel()}.`);
+    }
 
     if (newDoc) {
         setTimeout(() => {
@@ -1547,6 +2201,13 @@ function syncDocsFormButton() {
     const btn = document.getElementById('upload-form-cta');
     if (!btn) return;
     btn.disabled = !(docsForm.typeId && docsForm.name && docsForm.file);
+    const missingEl = document.getElementById('upload-form-missing');
+    const missingText = document.getElementById('upload-form-missing-text');
+    const message = uploadMissingMessage();
+    if (missingEl && missingText) {
+        missingText.textContent = message;
+        missingEl.hidden = !message;
+    }
 }
 
 function formatFileSize(bytes) {
@@ -1784,6 +2445,24 @@ function renderHome() {
                 </div>
             </div>
 
+            <article class="passport-card">
+                <span class="passport-card__icon"><i class="fas fa-passport"></i></span>
+                <div class="passport-card__body">
+                    <h5>Pasaporte Digital de la obra</h5>
+                    <p>Consultá la ficha viva de ${escapeHtml(project.name)} con documentos, hitos y actividad.</p>
+                </div>
+                <button type="button" class="passport-card__btn" data-action="open-pasaporte">Abrir <i class="fas fa-chevron-right"></i></button>
+            </article>
+
+            <article class="contact-card">
+                <span class="contact-card__icon"><i class="fas fa-headset"></i></span>
+                <div class="contact-card__body">
+                    <h5>Contacto directo</h5>
+                    <p>Hablá con los propietarios o el equipo técnico de la obra.</p>
+                </div>
+                <button type="button" class="contact-card__btn" data-action="open-contact">Contactar</button>
+            </article>
+
             <header class="owner-section-head">
                 <h4>Actividad reciente</h4>
                 <a class="owner-section-link tech-link" data-action="open-process">Ver toda la actividad <i class="fas fa-chevron-right"></i></a>
@@ -1880,7 +2559,25 @@ function renderHome() {
                     <h5>Pasaporte Digital del Edificio</h5>
                     <p>Accedé al pasaporte digital de cada obra para consultar toda su información técnica y legal.</p>
                 </div>
-                <button type="button" class="passport-card__btn" data-action="download-pasaporte">Ver pasaporte <i class="fas fa-chevron-right"></i></button>
+                <button type="button" class="passport-card__btn" data-action="open-pasaporte">Abrir <i class="fas fa-chevron-right"></i></button>
+            </article>
+
+            <article class="milestone-card">
+                <span class="milestone-card__icon"><i class="fas fa-flag"></i></span>
+                <div class="milestone-card__body">
+                    <h5>Notificar hito de obra</h5>
+                    <p>Avisá a la desarrolladora cuando se complete una etapa o un avance importante.</p>
+                </div>
+                <button type="button" class="milestone-card__btn" data-action="open-milestone">Notificar</button>
+            </article>
+
+            <article class="contact-card">
+                <span class="contact-card__icon"><i class="fas fa-headset"></i></span>
+                <div class="contact-card__body">
+                    <h5>Contacto directo</h5>
+                    <p>Hablá con los propietarios o la desarrolladora de la obra.</p>
+                </div>
+                <button type="button" class="contact-card__btn" data-action="open-contact">Contactar</button>
             </article>
         `;
     }
@@ -1937,6 +2634,24 @@ function renderHome() {
                     <p>${project.ownerUnit} · Piso 7</p>
                 </div>
                 <span class="status-pill"><span class="status-pill__dot"></span>En construcción</span>
+            </article>
+
+            <article class="passport-card passport-card--owner">
+                <span class="passport-card__icon"><i class="fas fa-passport"></i></span>
+                <div class="passport-card__body">
+                    <h5>Pasaporte Digital de tu propiedad</h5>
+                    <p>Tu documentación, avances, hitos y actividad de obra en una vista navegable.</p>
+                </div>
+                <button type="button" class="passport-card__btn" data-action="open-pasaporte">Abrir <i class="fas fa-chevron-right"></i></button>
+            </article>
+
+            <article class="contact-card">
+                <span class="contact-card__icon"><i class="fas fa-headset"></i></span>
+                <div class="contact-card__body">
+                    <h5>Contacto directo</h5>
+                    <p>Hablá con la desarrolladora o el equipo técnico.</p>
+                </div>
+                <button type="button" class="contact-card__btn" data-action="open-contact">Contactar</button>
             </article>
 
             <article class="process-card">
@@ -2008,6 +2723,7 @@ function renderDocs() {
                         <span class="badge badge-neutral">${escapeHtml(typeLabel)}</span>
                     </div>
                     ${doc.observation ? `<p class="doc-row__obs">${escapeHtml(doc.observation)}</p>` : ''}
+                    ${doc.sector ? `<span class="file-card__sector"><i class="fas fa-layer-group"></i> ${escapeHtml(doc.sector)}</span>` : ''}
                     <div class="doc-row__meta">
                         <small>${prettyDate(doc.createdAt)}</small>
                         <div class="doc-row__actions">
@@ -2020,13 +2736,13 @@ function renderDocs() {
         `;
     };
 
-    const uploadCtaMarkup = role !== 'owner' ? `
+    const uploadCtaMarkup = `
         <article class="section-card">
             <button type="button" class="docs-upload-btn" id="docs-open-upload">
                 <i class="fas fa-cloud-arrow-up"></i> Subir documento
             </button>
         </article>
-    ` : '';
+    `;
 
     const listMarkup = visibleDocs.length
         ? `<div class="doc-list">${visibleDocs.map(docRow).join('')}</div>`
@@ -2096,6 +2812,8 @@ function renderLibrary() {
         if (doc.folder === 'Planos') return { icon: 'fa-drafting-compass', tone: 'blue' };
         if (doc.folder === 'Legales') return { icon: 'fa-file-shield', tone: 'gray' };
         if (doc.folder === 'Documentos técnicos') return { icon: 'fa-file-lines', tone: 'orange' };
+        if (doc.folder === 'Documentación de obra') return { icon: 'fa-camera', tone: 'green' };
+        if (doc.folder === 'Cierre y entrega') return { icon: 'fa-flag-checkered', tone: 'orange' };
         if (doc.folder === 'Comprobantes') return { icon: 'fa-receipt', tone: 'green' };
         return { icon: 'fa-file-lines', tone: 'green' };
     };
@@ -2120,6 +2838,7 @@ function renderLibrary() {
                     <p class="file-card__uploader">
                         <span class="dot dot--${ui.dot}"></span> Subido por ${ui.label}
                     </p>
+                    ${doc.sector ? `<span class="file-card__sector"><i class="fas fa-layer-group"></i> ${escapeHtml(doc.sector)}</span>` : ''}
                     <p class="file-card__meta">${shortDate(doc.createdAt)} · v${doc.version || 1} · ${relativeTime(doc.createdAt)}</p>
                 </div>
                 <div class="file-card__actions">
@@ -2130,9 +2849,24 @@ function renderLibrary() {
                     <button class="file-card__action" data-doc-action="descargar" data-doc-id="${doc.id}" aria-label="Descargar">
                         <i class="fas fa-download"></i>
                     </button>
-                    <button class="file-card__action" data-doc-action="more" data-doc-id="${doc.id}" aria-label="Más opciones">
-                        <i class="fas fa-ellipsis-vertical"></i>
-                    </button>
+                    <div class="file-card__more">
+                        <button class="file-card__action" data-doc-action="more" data-doc-id="${doc.id}" aria-label="Más opciones" aria-expanded="${state.documentMenuOpen === doc.id ? 'true' : 'false'}">
+                            <i class="fas fa-ellipsis-vertical"></i>
+                        </button>
+                        ${state.documentMenuOpen === doc.id ? `
+                            <div class="file-card__menu" role="menu">
+                                <button type="button" data-doc-option="new-version" data-doc-id="${doc.id}" role="menuitem">
+                                    <i class="fas fa-cloud-arrow-up"></i> Subir nueva versión
+                                </button>
+                                <button type="button" data-doc-option="versions" data-doc-id="${doc.id}" role="menuitem">
+                                    <i class="fas fa-code-branch"></i> Ver versiones
+                                </button>
+                                <button type="button" data-doc-option="rename" data-doc-id="${doc.id}" role="menuitem">
+                                    <i class="fas fa-pen"></i> Renombrar
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
             </article>
         `;
@@ -2344,6 +3078,16 @@ function renderUploadScreen() {
                     <label for="upload-form-name">Nombre del documento</label>
                     <input id="upload-form-name" type="text" placeholder="Ej. Permiso municipal junio" value="${escapeHtml(docsForm.name)}">
                 </div>
+                ${typeNeedsSector(docsForm.typeId) ? `
+                <div class="docs-form__row">
+                    <label for="upload-form-sector">Sector / nivel de obra</label>
+                    <select id="upload-form-sector">
+                        <option value="">Sin especificar</option>
+                        ${DOC_SECTORS.map(sector => `<option value="${escapeHtml(sector)}" ${sector === docsForm.sector ? 'selected' : ''}>${escapeHtml(sector)}</option>`).join('')}
+                    </select>
+                    <small class="docs-form__hint-field">Ayudá a ubicar el plano o la documentación técnica dentro de la obra.</small>
+                </div>
+                ` : ''}
                 <div class="docs-form__row">
                     <label for="upload-form-obs">Observación (opcional)</label>
                     <textarea id="upload-form-obs" placeholder="Notas, contexto, número de expediente…">${escapeHtml(docsForm.observation)}</textarea>
@@ -2355,15 +3099,34 @@ function renderUploadScreen() {
                 <input type="file" id="upload-file-input" accept="application/pdf,image/*" hidden>
                 <input type="file" id="upload-camera-input" accept="image/*" capture="environment" hidden>
                 <button type="button" class="docs-upload-btn" id="upload-form-cta" ${docsForm.typeId && docsForm.name && docsForm.file ? '' : 'disabled'}>
-                    <i class="fas fa-cloud-arrow-up"></i> Subir archivo
+                    <i class="fas fa-cloud-arrow-up"></i> ${docsForm.versionOfDocId ? 'Subir nueva versión' : 'Subir archivo'}
                 </button>
+                <p class="docs-form__missing" id="upload-form-missing" ${uploadMissingMessage() ? '' : 'hidden'}>
+                    <i class="fas fa-circle-info"></i> <span id="upload-form-missing-text">${escapeHtml(uploadMissingMessage())}</span>
+                </p>
             </div>
         `;
 
+    const versionDoc = docsForm.versionOfDocId
+        ? state.documents.find(item => item.id === docsForm.versionOfDocId)
+        : null;
+    const versionBanner = versionDoc
+        ? `
+            <div class="version-banner">
+                <span class="version-banner__icon"><i class="fas fa-code-branch"></i></span>
+                <div>
+                    <strong>Nueva versión de "${escapeHtml(versionDoc.name)}"</strong>
+                    <small>Se guardará como v${(versionDoc.version || 1) + 1}. La versión v${versionDoc.version || 1} queda en el historial.</small>
+                </div>
+            </div>
+        `
+        : '';
+
     uploadScreenBody.innerHTML = `
         <article class="section-card">
-            <h3 class="section-title">Datos del documento</h3>
-            <p class="section-sub">Elegí el tipo, ponele un nombre y adjuntá el archivo (PDF o foto).</p>
+            <h3 class="section-title">${versionDoc ? 'Nueva versión del documento' : 'Datos del documento'}</h3>
+            <p class="section-sub">${versionDoc ? 'Adjuntá el archivo actualizado. El nombre y el tipo se mantienen.' : 'Elegí el tipo, ponele un nombre y adjuntá el archivo (PDF o foto).'}</p>
+            ${versionBanner}
             ${formMarkup}
         </article>
     `;
@@ -2419,9 +3182,15 @@ function bindUploadScreenEvents() {
     const typeSelect = document.getElementById('upload-form-type');
     const nameInput = document.getElementById('upload-form-name');
     const obsInput = document.getElementById('upload-form-obs');
-    if (typeSelect) typeSelect.addEventListener('change', () => { docsForm.typeId = typeSelect.value; syncDocsFormButton(); });
+    const sectorSelect = document.getElementById('upload-form-sector');
+    if (typeSelect) typeSelect.addEventListener('change', () => {
+        docsForm.typeId = typeSelect.value;
+        if (!typeNeedsSector(docsForm.typeId)) docsForm.sector = '';
+        renderUploadScreen(); // re-render para mostrar/ocultar el campo de sector
+    });
     if (nameInput) nameInput.addEventListener('input', () => { docsForm.name = nameInput.value.trim(); syncDocsFormButton(); });
     if (obsInput) obsInput.addEventListener('input', () => { docsForm.observation = obsInput.value.trim(); });
+    if (sectorSelect) sectorSelect.addEventListener('change', () => { docsForm.sector = sectorSelect.value; });
 
     const fileInput = document.getElementById('upload-file-input');
     const cameraInput = document.getElementById('upload-camera-input');
@@ -2444,13 +3213,33 @@ function openUploadScreen(prefill) {
     docsForm.typeId = prefill?.typeId || '';
     docsForm.name = prefill?.name || '';
     docsForm.observation = '';
+    docsForm.sector = prefill?.sector || '';
     docsForm.uploading = false;
     docsForm.file = null;
     docsForm.source = null;
     docsForm.remitoId = prefill?.remitoId || null;
+    docsForm.versionOfDocId = prefill?.versionOfDocId || null;
     uploadScreenEl.hidden = false;
     chatBubble.classList.add('hidden');
     renderUploadScreen();
+}
+
+// Abre la pantalla de subida en modo "nueva versión" de un documento existente
+function openNewVersionUpload(docId) {
+    const doc = state.documents.find(item => item.id === docId);
+    if (!doc) return;
+    // Cierra el menú de la tarjeta (su z-index es mayor que el overlay de subida)
+    state.documentMenuOpen = null;
+    renderApp();
+    // Cierra el panel de versiones si estaba abierto para no superponer overlays
+    const historyAside = document.getElementById('history-detail');
+    if (historyAside) historyAside.hidden = true;
+    openUploadScreen({
+        typeId: doc.typeId,
+        name: doc.name,
+        sector: doc.sector,
+        versionOfDocId: doc.id
+    });
 }
 
 function closeUploadScreen() {
@@ -2519,7 +3308,7 @@ function renderPlanViewer() {
 
     const planPreview = `
         <div id="blueprint-area" class="plan-shell">
-            <span class="plan-label">${escapeHtml(doc.folder)}</span>
+            <span class="plan-label">${escapeHtml(doc.folder)}${doc.sector ? ` · ${escapeHtml(doc.sector)}` : ''}</span>
             ${hasPin ? `<span class="pin-dot" style="left:${thread.pin.x}%; top:${thread.pin.y}%;"></span>` : ''}
             ${draft ? `<span class="pin-dot draft" style="left:${draft.x}%; top:${draft.y}%;"></span>` : ''}
             ${hasRedline ? '<span class="annotation-line"></span>' : ''}
@@ -2530,7 +3319,7 @@ function renderPlanViewer() {
         <div id="blueprint-area" class="doc-shell">
             <span class="doc-shell__type">${escapeHtml(docTypeLabel(doc))}</span>
             <h4 class="doc-shell__name">${escapeHtml(doc.name)}</h4>
-            <p class="doc-shell__meta">${escapeHtml(doc.folder)} · ${prettyDate(doc.createdAt)} · ${roleLabel(doc.uploadedBy)}</p>
+            <p class="doc-shell__meta">${escapeHtml(doc.folder)}${doc.sector ? ` · ${escapeHtml(doc.sector)}` : ''} · ${prettyDate(doc.createdAt)} · ${roleLabel(doc.uploadedBy)}</p>
             ${doc.observation ? `<p class="doc-shell__obs">${escapeHtml(doc.observation)}</p>` : ''}
             <div class="doc-shell__lines"></div>
             ${hasPin ? `<span class="pin-dot" style="left:${thread.pin.x}%; top:${thread.pin.y}%;"></span>` : ''}
@@ -2746,6 +3535,136 @@ function closePlanViewer() {
     if (!chatState.open && !uploadScreen.open) chatBubble.classList.remove('hidden');
 }
 
+function renameDocument(docId) {
+    const doc = state.documents.find(item => item.id === docId);
+    if (!doc) return;
+    const nextName = window.prompt('Nuevo nombre del documento', doc.name);
+    const cleanName = (nextName || '').trim();
+    if (!cleanName || cleanName === doc.name) {
+        state.documentMenuOpen = null;
+        renderApp();
+        return;
+    }
+
+    doc.name = cleanName;
+    doc.version = (doc.version || 1) + 1;
+    pushVersionEvent(EVENT_TYPES.VERSION_EVENT_LOGGED, {
+        actorRole: state.currentRole,
+        documentId: doc.id,
+        projectId: doc.projectId,
+        text: `${roleLabel(state.currentRole)} renombró el documento a "${doc.name}".`
+    });
+    state.documentMenuOpen = null;
+    renderApp();
+    showToast('Documento renombrado.');
+}
+
+function moveDocument(docId) {
+    const doc = state.documents.find(item => item.id === docId);
+    if (!doc) return;
+    const folders = [...new Set(DOC_TYPES.map(item => item.folder))];
+    const nextFolder = window.prompt(`Mover a carpeta:\n${folders.join(', ')}`, doc.folder);
+    const cleanFolder = (nextFolder || '').trim();
+    if (!cleanFolder || cleanFolder === doc.folder) {
+        state.documentMenuOpen = null;
+        renderApp();
+        return;
+    }
+
+    const matchedFolder = folders.find(folder => folder.toLowerCase() === cleanFolder.toLowerCase()) || cleanFolder;
+    doc.folder = matchedFolder;
+    doc.version = (doc.version || 1) + 1;
+    pushVersionEvent(EVENT_TYPES.VERSION_EVENT_LOGGED, {
+        actorRole: state.currentRole,
+        documentId: doc.id,
+        projectId: doc.projectId,
+        text: `${roleLabel(state.currentRole)} movió "${doc.name}" a ${doc.folder}.`
+    });
+    state.documentMenuOpen = null;
+    state.libraryFolder = null;
+    renderApp();
+    showToast('Documento movido.');
+}
+
+function openDocumentVersions(docId) {
+    const doc = state.documents.find(item => item.id === docId);
+    const aside = document.getElementById('history-detail');
+    const body = document.getElementById('history-detail-body');
+    const title = document.getElementById('history-detail-title');
+    if (!doc || !aside || !body) return;
+
+    const rows = state.versionHistory
+        .filter(row => row.documentId === docId)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    if (title) title.textContent = 'Versiones';
+    body.innerHTML = `
+        <section class="process-section">
+            <h4 class="process-section__kicker">${escapeHtml(doc.folder)}</h4>
+            <p class="process-section__stage">${escapeHtml(doc.name)}</p>
+            <p class="process-section__meta">Versión actual v${doc.version || 1} · ${roleLabel(doc.uploadedBy)} · ${prettyDate(doc.createdAt)}</p>
+            <div class="inline-actions">
+                <button type="button" class="btn-small action" data-doc-option="new-version" data-doc-id="${doc.id}">
+                    <i class="fas fa-cloud-arrow-up"></i> Subir nueva versión
+                </button>
+                <button type="button" class="btn-small" data-open-plan="${doc.id}">
+                    <i class="fas fa-eye"></i> Abrir documento
+                </button>
+                <button type="button" class="btn-small" data-action="download-doc-from-versions" data-doc-id="${doc.id}">
+                    <i class="fas fa-download"></i> Descargar
+                </button>
+            </div>
+        </section>
+
+        ${(doc.versions && doc.versions.length > 1) ? `
+        <section class="process-section">
+            <h4 class="process-section__title">Versiones del archivo</h4>
+            <div class="version-list">
+                ${[...doc.versions].sort((a, b) => b.version - a.version).map(v => `
+                    <div class="version-row ${v.version === doc.version ? 'is-current' : ''}">
+                        <span class="version-row__tag">v${v.version}</span>
+                        <div class="version-row__body">
+                            <strong>${escapeHtml(v.fileName || doc.name)}</strong>
+                            <small>${roleLabel(v.uploadedBy)} · ${prettyDate(v.createdAt)}</small>
+                        </div>
+                        ${v.version === doc.version ? '<span class="version-row__current">Actual</span>' : ''}
+                    </div>
+                `).join('')}
+            </div>
+        </section>
+        ` : ''}
+
+        <section class="process-section">
+            <h4 class="process-section__title">Registro de versiones</h4>
+            <ul class="process-timeline">
+                <li class="process-event">
+                    <div class="process-event__dot"></div>
+                    <div class="process-event__body">
+                        <h6>v${doc.version || 1} · Versión actual</h6>
+                        <p>${escapeHtml(doc.observation || 'Documento disponible para consulta.')}</p>
+                        <small>${roleLabel(doc.uploadedBy)} · ${prettyDate(doc.createdAt)}</small>
+                    </div>
+                </li>
+                ${rows.map(row => `
+                    <li class="process-event">
+                        <div class="process-event__dot"></div>
+                        <div class="process-event__body">
+                            <h6>${escapeHtml(EVENT_LABELS[row.type] || 'Cambio registrado')}</h6>
+                            <p>${escapeHtml(row.text)}</p>
+                            <small>${roleLabel(row.actorRole)} · ${prettyDate(row.createdAt)}</small>
+                        </div>
+                    </li>
+                `).join('')}
+            </ul>
+        </section>
+    `;
+
+    state.documentMenuOpen = null;
+    aside.hidden = false;
+    chatBubble.classList.add('hidden');
+    attachEventsInActiveTab();
+}
+
 function renderNotifications() {
     const container = document.getElementById('tab-notifications');
     const role = state.currentRole;
@@ -2756,7 +3675,19 @@ function renderNotifications() {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     if (!visible.length) {
-        container.innerHTML = '<div class="section-card"><p>No tenés alertas todavía.</p></div>';
+        const project = activeProject();
+        const projectName = project ? project.name : 'tu obra';
+        const canPublish = role === 'developer' || role === 'architect';
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-state__icon"><i class="far fa-bell"></i></span>
+                <h3>Todo al día en ${escapeHtml(projectName)}</h3>
+                <p>Acá vas a ver los comunicados y avisos de la obra: documentos nuevos, comentarios del equipo, firmas pendientes y novedades importantes.</p>
+                ${canPublish
+                    ? '<p class="empty-state__hint"><i class="fas fa-circle-info"></i> Cuando publiques un comunicado o cargues un documento, el resto del equipo recibe el aviso al instante.</p>'
+                    : '<p class="empty-state__hint"><i class="fas fa-circle-info"></i> Te avisamos apenas la desarrolladora o el equipo técnico publiquen una novedad.</p>'}
+            </div>
+        `;
         return;
     }
 
@@ -2788,170 +3719,209 @@ function renderNotifications() {
 
 function renderHistory() {
     const container = document.getElementById('tab-history');
+    const project = activeProject();
+    if (!container) return;
 
-    if (state.currentRole) {
-        const roleLabelShort = state.currentRole === 'owner' ? 'Propietaria' : (state.currentRole === 'architect' ? 'Equipo técnico' : 'Desarrolladora');
-        const subtitle = state.currentRole === 'owner'
-            ? 'Gestioná tu identidad y tus propiedades'
-            : 'Gestioná tu identidad y tus obras';
-        const propertiesLabel = state.currentRole === 'owner' ? 'Mis propiedades' : 'Mis obras';
-        const propertiesCtaLabel = state.currentRole === 'owner' ? 'Agregar propiedad' : 'Agregar obra';
-        const exportTitle = state.currentRole === 'owner' ? 'Exportar Pasaporte Digital' : 'Exportar pasaporte de obra';
-        const exportText = state.currentRole === 'owner'
-            ? 'Descargá el pasaporte digital de tu propiedad con toda su documentación oficial.'
-            : 'Descargá el pasaporte digital de la obra con toda su documentación oficial.';
-        container.innerHTML = `
-            <h2 class="profile-title">Mi perfil</h2>
-            <p class="profile-subtitle">${subtitle}</p>
-
-            <article class="profile-identity">
-                <div class="profile-identity__avatar">
-                    <button class="profile-identity__edit" type="button" aria-label="Editar foto"><i class="fas fa-pen"></i></button>
-                </div>
-                <div class="profile-identity__body">
-                    <h3>Liliana González</h3>
-                    <p class="profile-identity__role">${roleLabelShort}</p>
-                    <p class="profile-identity__location"><i class="fas fa-location-dot"></i> Torre Olivares · Unidad 7B</p>
-                    <span class="profile-verified"><i class="fas fa-circle-check"></i> Identidad verificada</span>
-                </div>
-            </article>
-
-            <header class="owner-section-head">
-                <h4>${propertiesLabel}</h4>
-                <a class="owner-section-link" data-action="goto-picker">Ver todas <i class="fas fa-chevron-right"></i></a>
-            </header>
-            <div class="property-stack">
-                <button type="button" class="property-row" data-project-id="olivares">
-                    <span class="property-row__thumb property-row__thumb--olivares"></span>
-                    <span class="property-row__body">
-                        <h5>Torre Olivares</h5>
-                        <p>Unidad 7B · Propietaria <span class="pill-soft">Principal</span></p>
-                    </span>
-                    <i class="fas fa-chevron-right property-row__chev"></i>
-                </button>
-                <button type="button" class="property-row" data-project-id="centro">
-                    <span class="property-row__thumb property-row__thumb--central"></span>
-                    <span class="property-row__body">
-                        <h5>Torre Central</h5>
-                        <p>Unidad 3A · Inversora</p>
-                    </span>
-                    <i class="fas fa-chevron-right property-row__chev"></i>
-                </button>
-                <button type="button" class="add-property-btn" data-action="add-property">
-                    <i class="fas fa-plus"></i> ${propertiesCtaLabel}
-                </button>
-            </div>
-
-            <header class="owner-section-head">
-                <h4>Actividad reciente</h4>
-                <a class="owner-section-link" data-action="open-process">Ver todo <i class="fas fa-chevron-right"></i></a>
-            </header>
-            <div class="activity-list">
-                <div class="activity-row">
-                    <span class="activity-row__icon activity-row__icon--doc"><i class="fas fa-file-circle-check"></i></span>
-                    <div class="activity-row__body">
-                        <h5>Documento firmado</h5>
-                        <small>Manual de uso · Ascensor</small>
-                    </div>
-                    <small class="activity-row__time">Hace 2 días</small>
-                </div>
-                <div class="activity-row">
-                    <span class="activity-row__icon activity-row__icon--check"><i class="fas fa-shield-halved"></i></span>
-                    <div class="activity-row__body">
-                        <h5>Garantía consultada</h5>
-                        <small>Bomba presurizadora</small>
-                    </div>
-                    <small class="activity-row__time">Ayer</small>
-                </div>
-                <div class="activity-row">
-                    <span class="activity-row__icon activity-row__icon--bell"><i class="fas fa-bullhorn"></i></span>
-                    <div class="activity-row__body">
-                        <h5>Comunicado leído</h5>
-                        <small>Citra · Avance semanal</small>
-                    </div>
-                    <small class="activity-row__time">3 días</small>
-                </div>
-            </div>
-
-            <header class="owner-section-head">
-                <h4>Configuración</h4>
-            </header>
-            <div class="profile-list">
-                <button class="profile-list__row" type="button">
-                    <span class="profile-list__icon"><i class="far fa-user"></i></span>
-                    <span class="profile-list__label">
-                        Información personal
-                        <small>Datos, contacto y verificación</small>
-                    </span>
-                    <i class="fas fa-chevron-right profile-list__chev"></i>
-                </button>
-                <button class="profile-list__row" type="button">
-                    <span class="profile-list__icon"><i class="fas fa-shield-halved"></i></span>
-                    <span class="profile-list__label">
-                        Seguridad
-                        <small>Contraseña y autenticación</small>
-                    </span>
-                    <i class="fas fa-chevron-right profile-list__chev"></i>
-                </button>
-                <button class="profile-list__row" type="button">
-                    <span class="profile-list__icon"><i class="far fa-bell"></i></span>
-                    <span class="profile-list__label">
-                        Notificaciones
-                        <small>Preferencias y alertas</small>
-                    </span>
-                    <i class="fas fa-chevron-right profile-list__chev"></i>
-                </button>
-                <button class="profile-list__row" type="button" data-profile-row="permisos">
-                    <span class="profile-list__icon"><i class="fas fa-user-group"></i></span>
-                    <span class="profile-list__label">
-                        Permisos y accesos
-                        <small>Personas con acceso a tus propiedades</small>
-                    </span>
-                    <i class="fas fa-chevron-right profile-list__chev"></i>
-                </button>
-                <button class="profile-list__row profile-list__row--danger" type="button" data-action="logout">
-                    <span class="profile-list__icon profile-list__icon--danger"><i class="fas fa-arrow-right-from-bracket"></i></span>
-                    <span class="profile-list__label">
-                        Cerrar sesión
-                        <small>Salir de tu cuenta de Obraty</small>
-                    </span>
-                    <i class="fas fa-chevron-right profile-list__chev"></i>
-                </button>
-            </div>
-
-            <article class="export-card">
-                <span class="export-card__icon"><i class="fas fa-passport"></i></span>
-                <div class="export-card__body">
-                    <h5>${exportTitle}</h5>
-                    <p>${exportText}</p>
-                </div>
-                <button class="export-card__btn" type="button"><i class="fas fa-download"></i> Exportar</button>
-            </article>
-        `;
+    if (!project) {
+        container.innerHTML = '<div class="section-card"><p>No hay obra activa.</p></div>';
         return;
     }
 
-    const historyRows = state.versionHistory
-        .filter(row => row.projectId === state.currentProject)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const filter = state.historyFilter || 'all';
+    const allEvents = timelineEventsForProject(project.id);
+    const filteredEvents = allEvents.filter(event => {
+        if (filter === 'all') return true;
+        if (filter === 'documents') return event.kind === 'document' || event.kind === 'remito' || event.kind === 'signature';
+        if (filter === 'comments') return event.kind === 'comment';
+        if (filter === 'milestones') return event.kind === 'milestone';
+        if (filter === 'notifications') return event.kind === 'notification';
+        return true;
+    });
 
-    if (!historyRows.length) {
-        container.innerHTML = '<div class="section-card"><p>Todavía no hay movimientos.</p></div>';
-        return;
-    }
+    const chip = (id, label, icon) => `
+        <button type="button" class="files-chip ${filter === id ? 'is-active' : ''}" data-history-filter="${id}">
+            <i class="fas ${icon}"></i> ${label}
+        </button>
+    `;
 
     container.innerHTML = `
-        <article class="section-card">
-            <h3 class="section-title">Historial</h3>
-            <p class="section-sub">Cada cambio queda guardado con su fecha y autor.</p>
-            <div class="timeline">
-                ${historyRows.map(row => `
-                    <div class="timeline-item">
-                        <h4>${EVENT_LABELS[row.type] || 'Movimiento'}</h4>
-                        <p>${escapeHtml(row.text)}</p>
-                        <div class="stamp">${roleLabel(row.actorRole)} · ${prettyDate(row.createdAt)}</div>
-                    </div>
-                `).join('')}
+        <header class="history-head">
+            <p class="history-head__kicker">${escapeHtml(project.name)}</p>
+            <h2>Historial</h2>
+            <p>Cronología de documentos, comentarios, hitos y comunicaciones de la obra.</p>
+        </header>
+
+        <div class="history-summary">
+            <div>
+                <strong>${allEvents.length}</strong>
+                <small>eventos</small>
+            </div>
+            <div>
+                <strong>${state.documents.filter(doc => doc.projectId === project.id).length}</strong>
+                <small>documentos</small>
+            </div>
+            <div>
+                <strong>${project.progress}%</strong>
+                <small>avance</small>
+            </div>
+        </div>
+
+        <div class="files-chips history-chips">
+            ${chip('all', 'Todo', 'fa-layer-group')}
+            ${chip('documents', 'Documentos', 'fa-file-lines')}
+            ${chip('comments', 'Comentarios', 'fa-message')}
+            ${chip('milestones', 'Hitos', 'fa-flag')}
+            ${chip('notifications', 'Comunicados', 'fa-bullhorn')}
+        </div>
+
+        <div class="history-timeline">
+            ${filteredEvents.length ? filteredEvents.map(event => `
+                <button type="button" class="history-event history-event--${event.kind}"
+                    ${event.documentId ? `data-history-doc="${event.documentId}"` : ''}
+                    ${event.action ? `data-history-action="${event.action}"` : ''}>
+                    <span class="history-event__rail">
+                        <span class="history-event__icon"><i class="fas ${eventIcon(event.kind)}"></i></span>
+                    </span>
+                    <span class="history-event__body">
+                        <span class="history-event__top">
+                            <strong>${escapeHtml(event.title)}</strong>
+                            <small>${escapeHtml(event.when)}</small>
+                        </span>
+                        <span class="history-event__text">${escapeHtml(event.text)}</span>
+                        <span class="history-event__meta">${eventKindLabel(event.kind)} · ${roleLabel(event.actorRole)}</span>
+                    </span>
+                    <i class="fas fa-chevron-right history-event__chev"></i>
+                </button>
+            `).join('') : '<div class="section-card"><p class="section-sub">No hay eventos para este filtro.</p></div>'}
+        </div>
+    `;
+}
+
+function renderProfile() {
+    const container = document.getElementById('tab-profile');
+    const project = activeProject() || state.projects[0];
+    if (!container || !project) return;
+
+    const roleLabelShort = state.currentRole === 'owner' ? 'Propietaria' : (state.currentRole === 'architect' ? 'Equipo técnico' : 'Desarrolladora');
+    const subtitle = state.currentRole === 'owner'
+        ? 'Gestioná tu identidad y tus propiedades'
+        : 'Gestioná tu identidad y tus obras';
+    const propertiesLabel = state.currentRole === 'owner' ? 'Mis propiedades' : 'Mis obras';
+    const propertiesCtaLabel = state.currentRole === 'owner' ? 'Agregar propiedad' : 'Agregar obra';
+    const exportTitle = state.currentRole === 'owner' ? 'Pasaporte Digital de tu propiedad' : 'Pasaporte Digital de la obra';
+    const exportText = state.currentRole === 'owner'
+        ? 'Visualizá o exportá el pasaporte digital de tu propiedad.'
+        : 'Visualizá o exportá el pasaporte digital de la obra activa.';
+    const propertyRows = state.projects.slice(0, 3).map((item, idx) => `
+        <button type="button" class="property-row ${item.id === state.currentProject ? 'is-active' : ''}" data-project-id="${item.id}">
+            <span class="property-row__thumb ${idx % 2 ? 'property-row__thumb--central' : 'property-row__thumb--olivares'}"></span>
+            <span class="property-row__body">
+                <h5>${escapeHtml(item.name)}</h5>
+                <p>${state.currentRole === 'owner' ? escapeHtml(item.ownerUnit) : escapeHtml(item.location)} ${item.id === state.currentProject ? '<span class="pill-soft">Activa</span>' : ''}</p>
+            </span>
+            <i class="fas fa-chevron-right property-row__chev"></i>
+        </button>
+    `).join('');
+
+    container.innerHTML = `
+        <h2 class="profile-title">Mi perfil</h2>
+        <p class="profile-subtitle">${subtitle}</p>
+
+        <article class="profile-identity">
+            <div class="profile-identity__avatar">
+                <button class="profile-identity__edit" type="button" aria-label="Editar foto"><i class="fas fa-pen"></i></button>
+            </div>
+            <div class="profile-identity__body">
+                <h3>Liliana González</h3>
+                <p class="profile-identity__role">${roleLabelShort}</p>
+                <p class="profile-identity__location"><i class="fas fa-location-dot"></i> ${escapeHtml(project.name)} · ${escapeHtml(project.ownerUnit || project.location)}</p>
+                <span class="profile-verified"><i class="fas fa-circle-check"></i> Identidad verificada</span>
+            </div>
+        </article>
+
+        <header class="owner-section-head">
+            <h4>${propertiesLabel}</h4>
+            <a class="owner-section-link" data-action="goto-picker">Ver todas <i class="fas fa-chevron-right"></i></a>
+        </header>
+        <div class="property-stack">
+            ${propertyRows}
+            <button type="button" class="add-property-btn" data-action="${state.currentRole === 'owner' ? 'add-property' : 'add-obra'}">
+                <i class="fas fa-plus"></i> ${propertiesCtaLabel}
+            </button>
+        </div>
+
+        <header class="owner-section-head">
+            <h4>Actividad reciente</h4>
+            <a class="owner-section-link" data-action="goto-history">Ver historial <i class="fas fa-chevron-right"></i></a>
+        </header>
+        <div class="activity-list">
+            ${timelineEventsForProject(project.id).slice(0, 3).map(event => `
+                <button type="button" class="activity-row activity-row--button" ${event.documentId ? `data-open-plan="${event.documentId}"` : `data-action="${event.action || 'goto-history'}"`}>
+                    <span class="activity-row__icon activity-row__icon--doc"><i class="fas ${eventIcon(event.kind)}"></i></span>
+                    <span class="activity-row__body">
+                        <h5>${escapeHtml(event.title)}</h5>
+                        <small>${escapeHtml(event.text)}</small>
+                    </span>
+                    <small class="activity-row__time">${escapeHtml(event.when)}</small>
+                </button>
+            `).join('')}
+        </div>
+
+        <header class="owner-section-head">
+            <h4>Configuración</h4>
+        </header>
+        <div class="profile-list">
+            <button class="profile-list__row" type="button">
+                <span class="profile-list__icon"><i class="far fa-user"></i></span>
+                <span class="profile-list__label">
+                    Información personal
+                    <small>Datos, contacto y verificación</small>
+                </span>
+                <i class="fas fa-chevron-right profile-list__chev"></i>
+            </button>
+            <button class="profile-list__row" type="button" data-action="open-contact">
+                <span class="profile-list__icon"><i class="fas fa-headset"></i></span>
+                <span class="profile-list__label">
+                    Contacto humano
+                    <small>Desarrolladora, equipo técnico y responsables</small>
+                </span>
+                <i class="fas fa-chevron-right profile-list__chev"></i>
+            </button>
+            <button class="profile-list__row" type="button">
+                <span class="profile-list__icon"><i class="fas fa-shield-halved"></i></span>
+                <span class="profile-list__label">
+                    Seguridad
+                    <small>Contraseña y autenticación</small>
+                </span>
+                <i class="fas fa-chevron-right profile-list__chev"></i>
+            </button>
+            <button class="profile-list__row" type="button">
+                <span class="profile-list__icon"><i class="far fa-bell"></i></span>
+                <span class="profile-list__label">
+                    Notificaciones
+                    <small>Preferencias y alertas</small>
+                </span>
+                <i class="fas fa-chevron-right profile-list__chev"></i>
+            </button>
+            <button class="profile-list__row profile-list__row--danger" type="button" data-action="logout">
+                <span class="profile-list__icon profile-list__icon--danger"><i class="fas fa-arrow-right-from-bracket"></i></span>
+                <span class="profile-list__label">
+                    Cerrar sesión
+                    <small>Salir de tu cuenta de Obraty</small>
+                </span>
+                <i class="fas fa-chevron-right profile-list__chev"></i>
+            </button>
+        </div>
+
+        <article class="export-card">
+            <span class="export-card__icon"><i class="fas fa-passport"></i></span>
+            <div class="export-card__body">
+                <h5>${exportTitle}</h5>
+                <p>${exportText}</p>
+            </div>
+            <div class="export-card__actions">
+                <button class="export-card__btn" type="button" data-action="open-pasaporte"><i class="fas fa-eye"></i> Ver</button>
+                <button class="export-card__btn" type="button" data-action="download-pasaporte"><i class="fas fa-download"></i> Exportar</button>
             </div>
         </article>
     `;
@@ -2974,7 +3944,7 @@ function updateHeader() {
     if (brandHeader) brandHeader.hidden = !useBrand;
 
     const tabBar = document.querySelector('.tab-bar');
-    if (tabBar) tabBar.dataset.tabs = '4';
+    if (tabBar) tabBar.dataset.tabs = '5';
 
     const docsTab = document.querySelector('.tab-item[data-tab="docs"]');
     if (docsTab) docsTab.hidden = true;
@@ -3001,13 +3971,20 @@ function updateHeader() {
     const notifTabIcon = document.querySelector('[data-tab-icon="notifications"]');
     const historyTabLabel = document.querySelector('[data-tab-label="history"]');
     const historyTabIcon = document.querySelector('[data-tab-icon="history"]');
+    const profileTabLabel = document.querySelector('[data-tab-label="profile"]');
+    const profileTabIcon = document.querySelector('[data-tab-icon="profile"]');
 
     notifTabLabel.textContent = notifCount > 0 ? `Comunicados (${notifCount})` : 'Comunicados';
     notifTabIcon.className = 'far fa-comment-dots';
     notifTabIcon.dataset.tabIcon = 'notifications';
-    historyTabLabel.textContent = 'Mi perfil';
-    historyTabIcon.className = 'far fa-user';
+    historyTabLabel.textContent = 'Historial';
+    historyTabIcon.className = 'fas fa-clock-rotate-left';
     historyTabIcon.dataset.tabIcon = 'history';
+    if (profileTabLabel) profileTabLabel.textContent = 'Mi perfil';
+    if (profileTabIcon) {
+        profileTabIcon.className = 'far fa-user';
+        profileTabIcon.dataset.tabIcon = 'profile';
+    }
 
     const backBtn = document.getElementById('back-profiles');
     if (backBtn) {
@@ -3235,6 +4212,22 @@ function attachEventsInActiveTab() {
             if (!doc) return;
             if (action === 'descargar') downloadDocument(doc);
             if (action === 'comentar') openPlanViewer(docId);
+            if (action === 'more') {
+                state.documentMenuOpen = state.documentMenuOpen === docId ? null : docId;
+                renderLibrary();
+                attachEventsInActiveTab();
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-doc-option]').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const docId = button.dataset.docId;
+            const option = button.dataset.docOption;
+            if (option === 'rename') renameDocument(docId);
+            if (option === 'new-version') openNewVersionUpload(docId);
+            if (option === 'versions') openDocumentVersions(docId);
         });
     });
 
@@ -3265,6 +4258,7 @@ function attachEventsInActiveTab() {
             event.stopPropagation();
             state.libraryView = item.dataset.setView;
             state.libraryFolder = null;
+            state.documentMenuOpen = null;
             state.libraryFilterOpen = false;
             renderLibrary();
             attachEventsInActiveTab();
@@ -3292,6 +4286,7 @@ function attachEventsInActiveTab() {
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             state.librarySearch = searchInput.value;
+            state.documentMenuOpen = null;
             const focused = document.activeElement === searchInput;
             const pos = searchInput.selectionStart;
             renderLibrary();
@@ -3306,6 +4301,28 @@ function attachEventsInActiveTab() {
         });
     }
 
+    document.querySelectorAll('[data-history-filter]').forEach(chip => {
+        chip.addEventListener('click', () => {
+            state.historyFilter = chip.dataset.historyFilter;
+            renderHistory();
+            attachEventsInActiveTab();
+        });
+    });
+
+    document.querySelectorAll('[data-history-doc]').forEach(button => {
+        button.addEventListener('click', () => {
+            openPlanViewer(button.dataset.historyDoc);
+        });
+    });
+
+    document.querySelectorAll('[data-history-action]').forEach(button => {
+        button.addEventListener('click', () => {
+            const action = button.dataset.historyAction;
+            if (action === 'open-process') openProcessDetail();
+            if (action === 'goto-docs') switchTab('library');
+            if (action === 'goto-notifications') switchTab('notifications');
+        });
+    });
 }
 
 function bindFilterMenuOutsideClick() {
@@ -3331,6 +4348,7 @@ function renderApp() {
     renderLibrary();
     renderNotifications();
     renderHistory();
+    renderProfile();
 
     tabButtons.forEach(button => button.classList.toggle('active', button.dataset.tab === state.activeTab));
     tabScreens.forEach(screen => screen.classList.toggle('active', screen.id === `tab-${state.activeTab}`));
@@ -3437,6 +4455,12 @@ function boot() {
     if (tareasCloseBtn) tareasCloseBtn.addEventListener('click', closeTareasDetail);
     const historyCloseBtn = document.getElementById('history-detail-close');
     if (historyCloseBtn) historyCloseBtn.addEventListener('click', closeHistoryDetail);
+    const passportCloseBtn = document.getElementById('passport-detail-close');
+    if (passportCloseBtn) passportCloseBtn.addEventListener('click', closePassportDetail);
+    const contactCloseBtn = document.getElementById('contact-detail-close');
+    if (contactCloseBtn) contactCloseBtn.addEventListener('click', closeContactDetail);
+    const milestoneCloseBtn = document.getElementById('milestone-detail-close');
+    if (milestoneCloseBtn) milestoneCloseBtn.addEventListener('click', closeMilestoneDetail);
     uploadScreenCloseBtn.addEventListener('click', () => {
         docsForm.uploading = false;
         closeUploadScreen();
@@ -3455,20 +4479,21 @@ function boot() {
     // Picker: búsqueda y filtro
     const pickerSearch = document.querySelector('#screen-project-picker .obra-picker__search input');
     if (pickerSearch) {
-        pickerSearch.addEventListener('input', () => {
-            const q = pickerSearch.value.trim().toLowerCase();
-            document.querySelectorAll('#project-picker-list .obra-card[data-project-id]').forEach(card => {
-                const name = card.querySelector('.obra-card__name')?.textContent.toLowerCase() || '';
-                const loc = card.querySelector('.obra-card__loc')?.textContent.toLowerCase() || '';
-                const match = !q || name.includes(q) || loc.includes(q);
-                card.style.display = match ? '' : 'none';
-            });
-        });
+        pickerSearch.addEventListener('input', applyPickerFilters);
     }
-    const pickerFilterBtn = document.querySelector('#screen-project-picker .obra-picker__filter');
-    if (pickerFilterBtn) {
-        pickerFilterBtn.addEventListener('click', () => {
-            alert('Filtros próximamente: por etapa, avance y pendientes.');
+    const pickerFilterBtn = document.getElementById('picker-filter-btn');
+    const pickerFilterMenu = document.getElementById('picker-filter-menu');
+    if (pickerFilterBtn && pickerFilterMenu) {
+        pickerFilterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const willOpen = pickerFilterMenu.hidden;
+            pickerFilterMenu.hidden = !willOpen;
+            pickerFilterBtn.setAttribute('aria-expanded', String(willOpen));
+        });
+        document.addEventListener('click', (e) => {
+            if (!pickerFilterMenu.hidden && !e.target.closest('.obra-picker__filter-wrap')) {
+                closePickerFilterMenu();
+            }
         });
     }
 
@@ -3492,16 +4517,22 @@ function boot() {
             closeProcessDetail();
             closeTareasDetail();
             closeHistoryDetail();
+            closePassportDetail();
+            closeContactDetail();
             switchTab('history');
         } else if (action === 'goto-notifications') {
             closeProcessDetail();
             closeTareasDetail();
             closeHistoryDetail();
+            closePassportDetail();
+            closeContactDetail();
             switchTab('notifications');
         } else if (action === 'goto-docs') {
             closeProcessDetail();
             closeTareasDetail();
             closeHistoryDetail();
+            closePassportDetail();
+            closeContactDetail();
             switchTab('library');
         } else if (action === 'open-process') {
             openProcessDetail();
@@ -3514,8 +4545,21 @@ function boot() {
             openTareasDetail();
         } else if (action === 'open-history') {
             openHistoryDetail();
+        } else if (action === 'open-pasaporte') {
+            openPassportDetail();
         } else if (action === 'download-pasaporte') {
             downloadPasaporte();
+        } else if (action === 'open-contact') {
+            openContactDetail();
+        } else if (action === 'open-milestone') {
+            openMilestoneDetail();
+        } else if (action === 'send-contact') {
+            sendHumanContact(actionEl.dataset.contactRole);
+        } else if (action === 'call-contact') {
+            showToast('Llamada solicitada. El contacto recibirá el aviso.');
+        } else if (action === 'download-doc-from-versions') {
+            const doc = state.documents.find(item => item.id === actionEl.dataset.docId);
+            if (doc) downloadDocument(doc);
         } else if (action === 'notify-tech') {
             const remito = state.remitos.find(r => r.id === actionEl.dataset.remitoId);
             if (remito && remito.status === 'pendiente') {
