@@ -31,6 +31,7 @@
 
 body {
     min-height: 100vh;
+    min-height: 100dvh;
     font-family: 'Outfit', sans-serif;
     color: var(--text-dark);
     background:
@@ -40,7 +41,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px;
+    padding: 0;
     -webkit-font-smoothing: antialiased;
 }
 
@@ -51,13 +52,14 @@ body {
 }
 
 #app-container {
-    width: min(420px, 100vw);
-    height: min(860px, 100vh);
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
     background: var(--bg-cream-soft);
-    border: 1px solid var(--line-gray);
-    border-radius: 38px;
+    border: 0;
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: var(--shadow-lg);
+    box-shadow: none;
     position: relative;
 }
 
@@ -1988,11 +1990,8 @@ body {
     border: 0;
 }
 
+/* Pantallas bajas (teléfonos apaisados / ventanas cortas): hero compacto */
 @media (max-height: 740px) {
-    #app-container {
-        border-radius: 20px;
-    }
-
     .hero-logo {
         padding: 16px 0 8px;
         margin-bottom: 16px;
@@ -2007,16 +2006,121 @@ body {
     }
 }
 
-@media (max-width: 430px) {
-    body {
-        padding: 0;
+/* ===== Computadoras: layout de página web (sidebar + contenido), sin marco ===== */
+@media (min-width: 1024px) {
+    #app-container {
+        box-shadow: none;
     }
 
-    #app-container {
-        width: 100vw;
-        height: 100vh;
-        border-radius: 0;
-        border: 0;
+    #screen-app.active {
+        display: grid;
+        grid-template-columns: 256px 1fr;
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+            "sidebar header"
+            "sidebar content";
+        padding-bottom: 0;
+    }
+
+    /* Navegación como sidebar vertical fijo */
+    .tab-bar,
+    .tab-bar[data-tabs="5"] {
+        grid-area: sidebar;
+        position: static;
+        width: 256px;
+        height: 100%;
+        grid-template-columns: 1fr;
+        grid-auto-rows: min-content;
+        align-content: start;
+        gap: 4px;
+        padding: 24px 16px;
+        border-top: 0;
+        border-right: 1px solid var(--line-gray);
+    }
+
+    .tab-bar::before {
+        content: 'obraty';
+        font-family: 'Outfit', sans-serif;
+        font-weight: 800;
+        font-size: 23px;
+        letter-spacing: -0.01em;
+        color: var(--assistant-olive-deep);
+        padding: 6px 14px 20px;
+    }
+
+    .tab-item,
+    .tab-bar[data-tabs="5"] .tab-item {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 13px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        font-size: 14px;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .tab-item i,
+    .tab-bar[data-tabs="5"] .tab-item i {
+        font-size: 17px;
+        width: 22px;
+        text-align: center;
+    }
+
+    .tab-bar[data-tabs="5"] .tab-item span {
+        white-space: nowrap;
+        overflow: visible;
+    }
+
+    .tab-item:hover {
+        background: var(--line-soft);
+    }
+
+    /* Estado activo: fondo suave en vez de la línea superior */
+    .tab-item::before {
+        display: none;
+    }
+
+    .tab-item.active {
+        background: var(--assistant-olive-soft);
+        color: var(--assistant-olive-deep);
+    }
+
+    /* Header y contenido a la derecha del sidebar */
+    .screen-header {
+        grid-area: header;
+    }
+
+    #content-area {
+        grid-area: content;
+        padding: 32px 40px 64px;
+    }
+
+    .tab-screen.active {
+        max-width: 1040px;
+        margin-inline: auto;
+    }
+
+    /* Los paneles superpuestos cubren solo el contenido, no el sidebar */
+    .plan-viewer,
+    .upload-screen,
+    .library-upload-bar {
+        left: 256px;
+    }
+
+    /* Chat como panel flotante (widget web) */
+    .chat-panel {
+        left: auto;
+        right: 24px;
+        bottom: 24px;
+        width: 400px;
+        max-height: 560px;
+        border-radius: 20px;
+        border: 1px solid var(--line-gray);
+    }
+
+    .chat-bubble {
+        right: 24px;
+        bottom: 24px;
     }
 }
 
